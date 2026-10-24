@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-24
+
 ### Fixed
 
 - A version bump now checks the version being written rather than the one on
@@ -34,5 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflow, and an example rule and workflow.
 - MIT and Apache-2.0 license texts.
 
-[Unreleased]: https://github.com/Synx-x/repo-release/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Synx-x/repo-release/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/Synx-x/repo-release/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Synx-x/repo-release/releases/tag/v0.1.0
