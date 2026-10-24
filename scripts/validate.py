@@ -363,8 +363,13 @@ def check_hygiene(repo: Path) -> list[Finding]:
     return out
 
 
-def check_release(repo: Path) -> list[Finding]:
-    """Version, tag and changelog must point at the same release."""
+def check_release(repo: Path, expected: str = "") -> list[Finding]:
+    """Version, tag and changelog must point at the same release.
+
+    `expected` is the version a pending edit is about to write. The file on disk
+    still holds the old one, so without it a version bump is always judged
+    against the release it is replacing and always passes.
+    """
     out = []
     version, source = None, ""
     pyproject = repo / "pyproject.toml"
@@ -390,6 +395,10 @@ def check_release(repo: Path) -> list[Finding]:
         out.append(Finding("block", "version-missing",
                            "no version in pyproject.toml, package.json or plugin.json"))
         return out
+    if expected and expected != version:
+        out.append(Finding("note", "version-pending",
+                           f"checking the pending version {expected}, not {version} on disk"))
+        version, source = expected, "pending edit"
     out.append(Finding("note", "version", f"{version} from {source}"))
 
     if re.fullmatch(r"0\.0\.0", version or ""):
@@ -432,11 +441,14 @@ PROFILES = {
 }
 
 
-def run(repo: Path, profile: str) -> list[Finding]:
+def run(repo: Path, profile: str, expected: str = "") -> list[Finding]:
     findings: list[Finding] = []
     for check in PROFILES[profile]:
         try:
-            findings.extend(check(repo))
+            if check is check_release:
+                findings.extend(check(repo, expected))
+            else:
+                findings.extend(check(repo))
         except Exception as exc:  # a broken check must not hide the others
             findings.append(Finding("warn", "check-error",
                                     f"{check.__name__} failed: {exc}"))
@@ -452,6 +464,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", choices=sorted(PROFILES), default="public")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--quiet", action="store_true", help="blocking findings only")
+    parser.add_argument(
+        "--version",
+        default="",
+        help="check this version instead of the one on disk, for a pending bump",
+    )
     args = parser.parse_args(argv)
 
     repo = Path(args.repo).expanduser().resolve()
@@ -459,7 +476,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"not a directory: {repo}", file=sys.stderr)
         return 2
 
-    findings = run(repo, args.profile)
+    findings = run(repo, args.profile, args.version)
     blocking = [f for f in findings if f.severity == "block"]
     warnings = [f for f in findings if f.severity == "warn"]
 

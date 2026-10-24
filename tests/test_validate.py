@@ -224,6 +224,29 @@ def test_placeholder_version_blocks(tmp_path: Path):
     assert "version-placeholder" in codes(check(repo, "check_release"))
 
 
+def test_pending_version_is_checked_instead_of_the_one_on_disk(tmp_path: Path):
+    """The check judges a bump against the version being written. Reading the
+    file on disk judges it against the release it replaces, so a bump always
+    passes."""
+    repo = make_repo(tmp_path)
+    (repo / "pyproject.toml").write_text('[project]\nname = "x"\nversion = "0.1.0"\n')
+    (repo / "CHANGELOG.md").write_text("## 0.1.0\n")
+    assert "changelog-stale" not in codes(check(repo, "check_release"))
+    pending = validate.check_release(repo, expected="0.2.0")
+    assert "changelog-stale" in codes(pending)
+
+
+def test_plugin_manifest_counts_as_a_version_source(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    manifest = repo / ".claude-plugin" / "plugin.json"
+    manifest.parent.mkdir()
+    manifest.write_text(json.dumps({"name": "p", "version": "1.0.0"}))
+    (repo / "CHANGELOG.md").write_text("## 1.0.0\n")
+    found = codes(validate.check_release(repo))
+    assert "version-missing" not in found
+    assert "changelog-stale" not in found
+
+
 # --- hygiene --------------------------------------------------------------
 
 def test_missing_gitignore_blocks(tmp_path: Path):

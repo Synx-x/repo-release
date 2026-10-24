@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A version bump now checks the version being written rather than the one on
+  disk. Before, every bump passed, because the check read the release it was
+  replacing.
+- `plugin.json` counts as a version source, in both the validator and the hook.
+  This plugin's own manifest was unguarded.
+
 ## [0.1.0] - 2026-10-24
 
 ### Added

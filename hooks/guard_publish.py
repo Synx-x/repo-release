@@ -50,7 +50,12 @@ PUBLISH_COMMANDS = (
     re.compile(r"\bgh\s+release\s+create\b"),
 )
 
-VERSION_FILES = ("pyproject.toml", "package.json", "Cargo.toml")
+VERSION_FILES = (
+    "pyproject.toml",
+    "package.json",
+    "Cargo.toml",
+    "plugin.json",      # Claude Code plugin manifest, under .claude-plugin/
+)
 
 
 def mode() -> str:
@@ -91,12 +96,12 @@ def repo_dir(payload: dict) -> Path:
     return Path(cwd)
 
 
-def validate(repo: Path, profile: str) -> tuple[int, str]:
+def validate(repo: Path, profile: str, expected: str = "") -> tuple[int, str]:
+    command = [sys.executable, str(VALIDATOR), str(repo), "--profile", profile, "--quiet"]
+    if expected:
+        command += ["--version", expected]
     try:
-        out = subprocess.run(
-            [sys.executable, str(VALIDATOR), str(repo), "--profile", profile, "--quiet"],
-            capture_output=True, text=True, timeout=60,
-        )
+        out = subprocess.run(command, capture_output=True, text=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 0, f"validator did not run: {exc}"
     return out.returncode, (out.stdout or "") + (out.stderr or "")
@@ -142,16 +147,20 @@ def on_write(payload: dict) -> None:
         sys.exit(0)
 
     # Only a version change is interesting. A doc edit to the same file is not.
+    # Two shapes to match: TOML `version = "x"` and JSON `"version": "x"`.
     new_text = str(tool_input.get("content") or tool_input.get("new_string") or "")
     old_text = str(tool_input.get("old_string") or "")
-    version_line = re.compile(r"^\s*\"?version\"?\s*[=:]\s*[\"']([^\"']+)[\"']", re.MULTILINE)
+    version_line = re.compile(
+        r'^[ \t]*["\']?version["\']?[ \t]*[=:][ \t]*["\']([^"\']+)["\']',
+        re.MULTILINE,
+    )
     new_version = version_line.search(new_text)
     old_version = version_line.search(old_text)
     if not new_version or (old_version and old_version.group(1) == new_version.group(1)):
         sys.exit(0)
 
     profile = "release"
-    code, detail = validate(repo_dir(payload), profile)
+    code, detail = validate(repo_dir(payload), profile, expected=new_version.group(1))
     if code == 0:
         sys.exit(0)
     setting = mode()
