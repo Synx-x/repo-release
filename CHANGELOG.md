@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-24
+
+### Fixed
+
+- A plugin with no `.env.example` no longer blocks. A plugin's variables are
+  behaviour toggles rather than setup values, and a `.env` file cannot say what
+  a toggle does. A plugin is now judged on whether its docs name the variables,
+  and an undocumented one warns. A non-plugin still blocks, because a service
+  really does need the file. Found by running the gate on `harness-kit`, which
+  reads 150 variables and ships no sample.
+
 ## [0.3.0] - 2026-10-24
 
 ### Added
