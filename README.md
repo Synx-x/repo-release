@@ -71,7 +71,7 @@ It writes `README.md`, `AGENTS.md`, thin `CLAUDE.md` and `GEMINI.md` bridges,
 
 ## Status
 
-Working and tested: the validator, the scaffolder, and the hook. 63 tests pass.
+Working and tested: the validator, the scaffolder, and the hook. 57 tests pass.
 Each check is tested against a fixture repo holding exactly the defect under
 test, so a passing suite means the checks discriminate rather than that the
 fixtures are empty.
