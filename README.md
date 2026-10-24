@@ -1,15 +1,39 @@
 # repo-release
 
 A Claude Code plugin that takes a repository from working to publicly readable,
-and keeps it readable afterwards. It ships four skills, a template set, and a
-validator that a hook runs on the publish and release commands.
+and keeps it readable afterwards.
+
+The repo gets classified before it gets checked, because one flat list blocks
+too much on some repos and says too little on others. The repo type decides the
+list. The repo with a `Cargo.toml` needs a licence field or crates.io rejects
+the publish. The repo with a `package.json` needs `files` or it ships its tests.
+The repo with `.claude-plugin/` needs valid `plugin.json` or it does not
+install.
+
+Five skills explain why each check exists. A validator decides whether it
+holds. A hook refuses the publish while a blocking finding stands.
+
+## Commands
 
 ```
-/repo-release:publish    publish surface, destination research, verification
-/repo-release:hygiene    ignore rules, history cleanup, CI gates
+/repo-release:publish    publish surface, domain audit, verification
+/repo-release:hygiene    ignore rules, tracked output, CI gates
 /repo-release:version    version, changelog and tag agreeing
 /repo-release:agent      AGENTS.md, bridges, project rules
 ```
+
+Each command routes to one skill and runs the validator first, so the audit
+faces the same checks the hook applies.
+
+## Skills
+
+| Skill | Use it when |
+|---|---|
+| `publish-repo` | taking a repo public, or shipping a first release |
+| `repo-hygiene` | ignore rules, tracked build output, CI gates |
+| `repo-versioning` | choosing a version, writing the changelog, cutting the tag |
+| `agent-native-repo` | writing AGENTS.md, tool bridges and project rules |
+| `domain-gates` | a gate blocks on a rule that does not fit, or adding a repo type |
 
 ## Install
 
@@ -51,6 +75,7 @@ what that type needs. Run `--list-domains` for the full set.
 | `node-library` | `package.json` | `files`, `exports`, `engines` |
 | `python-library` | `pyproject.toml`, `setup.py` | `requires-python`, tests, `py.typed` when annotated |
 | `docs` | over 70% markup | a README entry point |
+| `generic` | anything else | the base checks only |
 
 Every rule cites the maintained repo I measured it on. `sindresorhus/got` is
 why `files` and `exports` are checked. `wshobson/agents` is why plugin JSON
@@ -91,13 +116,13 @@ It writes `README.md`, `AGENTS.md`, thin `CLAUDE.md` and `GEMINI.md` bridges,
 
 ## Status
 
-Working and tested: the validator, the scaffolder, and the hook. 86 tests pass.
-Each check is tested against a fixture repo holding exactly the defect under
-test, so a passing suite means the checks discriminate rather than that the
-fixtures are empty.
+Working and tested: the validator, the scaffold, the hook and the domain
+gates. 89 tests pass. Each check is tested against a fixture repo holding
+exactly the defect under test, so a passing suite means the checks discriminate
+rather than that the fixtures are empty.
 
-Not yet measured: the hook against a real `gh repo create --public`. It has been
-exercised by direct invocation only.
+The hook has run on real publishes. `webbridge` and this repo both went public
+through it, and the version guard fired on the edits that cut their tags.
 
 ## Configuration
 

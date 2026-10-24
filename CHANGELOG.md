@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-24
+
+### Added
+
+- Four slash commands: `/repo-release:publish`, `/repo-release:hygiene`,
+  `/repo-release:version` and `/repo-release:agent`. Each routes to one skill
+  and runs the validator before touching the repo.
+- A `plugin-path-missing` check, blocking. When `plugin.json` declares a
+  `skills`, `commands` or `agents` path that does not exist, the harness loads
+  nothing from it.
+
+### Fixed
+
+- `plugin.json` declared `"commands": ["./commands/"]` for a directory that did
+  not exist. Every field check passed, because the field was present and
+  well-formed. Only the path was wrong, and this gate did not look at paths.
+- The README listed four slash commands under names the plugin never shipped,
+  claimed four skills where five exist, and said the hook had never run against
+  a real publish. All three were false.
+
 ## [0.2.0] - 2026-10-24
 
 ### Added

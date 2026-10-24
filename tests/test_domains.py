@@ -153,6 +153,30 @@ def test_skill_name_mismatch_warns(tmp_path: Path):
     assert not [f for f in found if f.code == "skill-name-mismatch" and f.severity == "block"]
 
 
+def test_declared_path_that_does_not_exist_blocks(tmp_path: Path):
+    """This plugin shipped `"commands": ["./commands/"]` with no such
+    directory. Every field check passed, because the field was present and
+    well-formed. Only the path itself was a lie."""
+    repo = plugin_repo(tmp_path, {
+        "name": "demo", "description": "d", "commands": ["./commands/"]})
+    found = domains.check_claude_plugin(repo)
+    assert "plugin-path-missing" in codes(found)
+    assert any(f.code == "plugin-path-missing" and f.severity == "block" for f in found)
+
+
+def test_declared_path_that_exists_passes(tmp_path: Path):
+    repo = plugin_repo(tmp_path, {
+        "name": "demo", "description": "d", "skills": ["./skills/demo"]})
+    assert "plugin-path-missing" not in codes(domains.check_claude_plugin(repo))
+
+
+def test_no_path_fields_is_normal(tmp_path: Path):
+    """91 of 92 wshobson/agents manifests declare none. Absence is the norm,
+    so it must never warn."""
+    assert "plugin-path-missing" not in codes(
+        domains.check_claude_plugin(plugin_repo(tmp_path)))
+
+
 def test_invalid_hooks_json_blocks(tmp_path: Path):
     repo = plugin_repo(tmp_path)
     (repo / "hooks").mkdir()

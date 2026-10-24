@@ -153,6 +153,37 @@ def _pyproject_value(repo: Path, pattern: str) -> str:
 SKILL_FRONTMATTER = re.compile(r"\A---\s*\n(.*?)\n---", re.DOTALL)
 
 
+def _plugin_path_fields(repo: Path, data: dict) -> list[Finding]:
+    """A declared path that resolves to nothing breaks the plugin's promise.
+
+    Evidence: 91 of the 92 plugin manifests in wshobson/agents (41k stars)
+    declare no path field at all, because the harness finds `skills/` and
+    `commands/` by convention. The one that does declares five `skills` paths,
+    and all five exist. anthropics/claude-plugins-official declares none.
+
+    So a path field is a deliberate claim, not boilerplate, and a claim that
+    points nowhere is the defect. This repo shipped `"commands": ["./commands/"]`
+    for a directory that did not exist, which no field check could catch.
+    """
+    out: list[Finding] = []
+    for field in ("skills", "commands", "agents"):
+        declared = data.get(field)
+        if not declared:
+            continue
+        entries = declared if isinstance(declared, list) else [declared]
+        for entry in entries:
+            if not isinstance(entry, str) or "://" in entry:
+                continue
+            target = (repo / entry).resolve()
+            if not target.exists():
+                out.append(Finding(
+                    "block", "plugin-path-missing",
+                    f"plugin.json declares {field} path {entry!r}, which does "
+                    "not exist; the harness loads nothing from it",
+                    ".claude-plugin/plugin.json"))
+    return out
+
+
 def check_claude_plugin(repo: Path) -> list[Finding]:
     """A plugin that fails here does not install, so these block.
 
@@ -182,6 +213,7 @@ def check_claude_plugin(repo: Path) -> list[Finding]:
                                    "plugin name contains a slash, which the "
                                    "installer rejects",
                                    ".claude-plugin/plugin.json"))
+            out.extend(_plugin_path_fields(repo, data))
 
     market = repo / ".claude-plugin" / "marketplace.json"
     if market.exists():
