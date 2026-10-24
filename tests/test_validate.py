@@ -68,6 +68,38 @@ def test_non_plugin_still_blocks_without_env_example(tmp_path: Path):
     assert "env-example-missing" in codes(check(repo, "check_env_example"))
 
 
+# --- claimed counts -------------------------------------------------------
+
+def test_stale_hook_count_warns(tmp_path: Path):
+    """harness-kit claimed 72 hooks while holding 107 hook files."""
+    repo = make_repo(tmp_path)
+    (repo / "hooks").mkdir()
+    for name in ("a", "b", "c"):
+        (repo / "hooks" / f"{name}.py").write_text("")
+    (repo / "README.md").write_text(
+        "# x\n\n| | Count |\n|---|---|\n| Hooks | 72 |\n" + GOOD_README)
+    found = check(repo, "check_claimed_counts")
+    assert "claimed-count-stale" in codes(found)
+    assert any("3" in f.message for f in found if f.code == "claimed-count-stale")
+
+
+def test_accurate_hook_count_passes(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    (repo / "hooks").mkdir()
+    for name in ("a", "b"):
+        (repo / "hooks" / f"{name}.py").write_text("")
+    (repo / "README.md").write_text(
+        "# x\n\n| Hooks | 2 |\n" + GOOD_README)
+    assert "claimed-count-stale" not in codes(check(repo, "check_claimed_counts"))
+
+
+def test_no_countable_shape_is_not_accused(tmp_path: Path):
+    """The check reads a table row only when the repo holds that shape."""
+    repo = make_repo(tmp_path)
+    (repo / "README.md").write_text("# x\n\n| Hooks | 72 |\n" + GOOD_README)
+    assert "claimed-count-stale" not in codes(check(repo, "check_claimed_counts"))
+
+
 # --- conformance ----------------------------------------------------------
 
 def test_missing_security_route_warns(tmp_path: Path):

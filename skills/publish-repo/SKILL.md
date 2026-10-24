@@ -139,6 +139,25 @@ Describe what it is, not what it hopes to be. "Anthropic Messages API facade in
 front of web chat providers" gets clicks. "A revolutionary AI orchestration
 layer" gets closed.
 
+## 4b. Set the About, which no validator can see
+
+The About line and the topic list live on GitHub, not in the tree, so no local
+check reaches them. That makes them the fields people forget: `harness-kit` was
+published with no description and no topics at all, and nothing noticed.
+
+```bash
+gh repo edit --description "<one line, what it is>" \
+  --add-topic t1 --add-topic t2 --add-topic t3
+gh repo view <owner>/<repo> --json description,repositoryTopics
+```
+
+Set the description from the README's first screen, not from memory. Then read
+it back and confirm it is non-empty, because `gh repo edit` reports success
+either way.
+
+The description is what a search result shows. The README is what a click
+shows. A repo with one and not the other is half published.
+
 ## 5. Verify the published result
 
 Done means the page renders, not that the push succeeded.
@@ -172,8 +191,9 @@ a repo someone trusts and one they quietly close.
 - [ ] Destination checked for signs of life
 - [ ] README leads with one sentence and an image, install before options
 - [ ] LICENSE present with real text
-- [ ] Description is one line stating what it is
-- [ ] Topics set
+- [ ] Description is one line stating what it is, read back from the repo
+- [ ] Topics set, read back from the repo
+- [ ] Every count the README states matches the tree
 - [ ] Published page fetched and checked
 - [ ] Every README image returns 200
 - [ ] Open gaps written down

@@ -399,10 +399,8 @@ def check_env_example(repo: Path) -> list[Finding]:
     if not found:
         return [Finding("note", "env-none", "no environment variables read by the source")]
     if not sample.exists():
-        # A plugin's variables are behaviour toggles, not setup values. Demanding
-        # a .env.example there asks for a file nobody would fill in, and the
-        # format cannot say what a toggle does. Documentation is the right
-        # artifact, so judge whether the docs name them instead.
+        # A plugin's variables are toggles, not setup values, and a .env cannot
+        # say what a toggle does. Judge whether the docs name them instead.
         if (repo / ".claude-plugin").is_dir():
             documented = "".join(read(p) for p in repo.rglob("*.md")
                                  if ".git" not in p.parts)
@@ -426,6 +424,65 @@ def check_env_example(repo: Path) -> list[Finding]:
                            ".env.example"))
     if not missing:
         out.append(Finding("note", "env-ok", f"all {len(found)} variable(s) documented"))
+    return out
+
+
+CLAIM_ROW = re.compile(
+    r"^\|\s*(Hooks|Subagents|Agents|Skills|Tests|Commands|Tools)\s*\|\s*(\d+)\s*\|",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# How to count each claimed noun. A claim is only checked when the repo holds
+# something countable under that shape, so a README in another layout is never
+# falsely accused.
+CLAIM_COUNTERS = {
+    "hooks": lambda r: [p for p in (r / "hooks").glob("*.py")
+                        if p.name not in ("run_hook.py", "stop_dispatch.py")],
+    "agents": lambda r: [p for p in (r / "agents").glob("*.md")],
+    "skills": lambda r: [p for p in (r / "skills").iterdir() if p.is_dir()],
+    "commands": lambda r: [p for p in (r / "commands").glob("*.md")],
+}
+
+
+def check_claimed_counts(repo: Path) -> list[Finding]:
+    """A README that states a count is making a checkable claim.
+
+    harness-kit claimed 72 hooks while the repo held 107 hook files, 114 manifest
+    rows and 49 wired entries. A stale number reads as carelessness, and it is
+    the cheapest kind of false statement to catch, because the truth sits in the
+    tree next to the sentence.
+
+    Only a claim in a table row of the form `| Hooks | 72 |` is read. Prose
+    numbers are ambiguous and a gate that guesses at them cries wolf.
+    """
+    out: list[Finding] = []
+    readme = first_existing(repo, ("README.md", "README.rst"))
+    if readme is None:
+        return [Finding("note", "claims-ok", "no README to check")]
+    text = read(readme)
+    checked = 0
+    for label, stated in CLAIM_ROW.findall(text):
+        key = label.lower()
+        if key == "subagents":
+            key = "agents"
+        counter = CLAIM_COUNTERS.get(key)
+        if counter is None:
+            continue
+        try:
+            actual = len(counter(repo))
+        except OSError:
+            continue
+        if actual == 0:
+            continue    # nothing under that shape, so the noun means something else
+        checked += 1
+        if int(stated) != actual:
+            out.append(Finding("warn", "claimed-count-stale",
+                               f"README claims {stated} {label.lower()} and the "
+                               f"repo holds {actual}", readme.name))
+    if not out:
+        out.append(Finding("note", "claims-ok",
+                           f"{checked} stated count(s) match the tree"
+                           if checked else "no count claim to check"))
     return out
 
 
@@ -546,12 +603,13 @@ PROFILES = {
         check_surface, check_ignored_tracked, check_absolute_paths,
         check_secrets, check_cited_paths, check_env_example,
         check_agents_md, check_hygiene, check_readme_images, check_conformance,
+        check_claimed_counts,
     ),
     "release": (
         check_surface, check_ignored_tracked, check_absolute_paths,
         check_secrets, check_cited_paths, check_env_example,
         check_agents_md, check_hygiene, check_readme_images, check_conformance,
-        check_release,
+        check_claimed_counts, check_release,
     ),
 }
 

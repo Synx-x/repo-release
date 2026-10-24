@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-24
+
+### Added
+
+- `check_claimed_counts`, warning. A README table row stating `| Hooks | 72 |`
+  is a checkable claim, and nothing checked it before. harness-kit claimed 72
+  hooks, 39 subagents, 11 skills and 891 tests against 105, 40, 19 and 2533 in
+  the tree. Only a table row is read, because a number in prose is ambiguous and
+  a gate that guesses at it cries wolf.
+- The `publish-repo` skill now sets and reads back the GitHub About and topics.
+  They live on GitHub, so no local check reaches them, and `harness-kit` was
+  published with neither while reporting nothing.
+
 ## [0.3.1] - 2026-10-24
 
 ### Fixed
