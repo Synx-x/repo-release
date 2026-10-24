@@ -36,6 +36,38 @@ def check(repo: Path, name: str):
     return getattr(validate, name)(repo)
 
 
+# --- env, plugin shape ----------------------------------------------------
+
+def test_plugin_documents_vars_in_docs_instead_of_env_example(tmp_path: Path):
+    """harness-kit reads 150 toggles and ships no .env.example. A toggle is
+    behaviour, not setup, and nobody fills a .env for it."""
+    repo = make_repo(tmp_path)
+    (repo / ".claude-plugin").mkdir()
+    (repo / ".claude-plugin" / "plugin.json").write_text('{"name":"x","description":"d"}')
+    (repo / "mod.py").write_text('import os\nos.getenv("HK_TOGGLE_ONE")\n')
+    (repo / "docs.md").write_text("Set HK_TOGGLE_ONE to change it.\n")
+    found = check(repo, "check_env_example")
+    assert "env-example-missing" not in codes(found)
+    assert "env-ok" in codes(found)
+
+
+def test_plugin_with_undocumented_vars_warns_not_blocks(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    (repo / ".claude-plugin").mkdir()
+    (repo / ".claude-plugin" / "plugin.json").write_text('{"name":"x","description":"d"}')
+    (repo / "mod.py").write_text('import os\nos.getenv("HK_HIDDEN_TOGGLE")\n')
+    found = check(repo, "check_env_example")
+    assert "env-undocumented" in codes(found)
+    assert not [f for f in found if f.severity == "block"]
+
+
+def test_non_plugin_still_blocks_without_env_example(tmp_path: Path):
+    """The relax applies to plugins only. A service still needs the file."""
+    repo = make_repo(tmp_path)
+    (repo / "app.py").write_text('import os\nos.getenv("DATABASE_URL")\n')
+    assert "env-example-missing" in codes(check(repo, "check_env_example"))
+
+
 # --- conformance ----------------------------------------------------------
 
 def test_missing_security_route_warns(tmp_path: Path):

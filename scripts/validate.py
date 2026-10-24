@@ -399,6 +399,21 @@ def check_env_example(repo: Path) -> list[Finding]:
     if not found:
         return [Finding("note", "env-none", "no environment variables read by the source")]
     if not sample.exists():
+        # A plugin's variables are behaviour toggles, not setup values. Demanding
+        # a .env.example there asks for a file nobody would fill in, and the
+        # format cannot say what a toggle does. Documentation is the right
+        # artifact, so judge whether the docs name them instead.
+        if (repo / ".claude-plugin").is_dir():
+            documented = "".join(read(p) for p in repo.rglob("*.md")
+                                 if ".git" not in p.parts)
+            missing = sorted(n for n in found if n not in documented)
+            if not missing:
+                return [Finding("note", "env-ok",
+                                f"all {len(found)} variable(s) named in the docs")]
+            return [Finding("warn", "env-undocumented",
+                            f"{len(missing)} of {len(found)} environment "
+                            f"variables are named nowhere in the docs, "
+                            f"starting with {', '.join(missing[:5])}")]
         return [Finding("block", "env-example-missing",
                         f"source reads {len(found)} environment variable(s) but there is "
                         "no .env.example listing them")]
