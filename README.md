@@ -26,7 +26,7 @@ most, which is late in a session when the push is one command away.
 The validator turns the checklist into an exit code:
 
 ```bash
-python3 scripts/validate.py /path/to/repo --profile public
+python3 scripts/validate.py /path/to/repo --profile public --domain auto
 ```
 
 It exits 1 on a blocking finding, and the hook refuses the publish command. Two
@@ -36,6 +36,26 @@ profiles:
 |---|---|
 | `public` | README, LICENSE, ignored-but-tracked files, machine-local paths, credential shapes, cited paths, `.env.example`, bridges, ignore rules |
 | `release` | all of `public`, plus manifest version, changelog entry and tag agreeing |
+
+## Domain gates
+
+A repo's needs follow its type. `--domain auto` detects the type, then applies
+what that type needs. Run `--list-domains` for the full set.
+
+| Domain | Detected by | Adds |
+|---|---|---|
+| `claude-plugin` | `.claude-plugin/` | `plugin.json`, `marketplace.json`, `SKILL.md` frontmatter and `hooks.json` all valid, blocking because an invalid manifest breaks install |
+| `mcp-server` | `server.json`, an MCP dependency, or `initialize` + `tools/call` | a transport named in the README, a registry file |
+| `monorepo` | `pnpm-workspace.yaml`, `turbo.json`, `workspaces` | a CI workflow, `CODEOWNERS` |
+| `rust-crate` | `Cargo.toml` | a licence field (blocking, since crates.io rejects without it), `Cargo.lock`, `SECURITY.md` |
+| `node-library` | `package.json` | `files`, `exports`, `engines` |
+| `python-library` | `pyproject.toml`, `setup.py` | `requires-python`, tests, `py.typed` when annotated |
+| `docs` | over 70% markup | a README entry point |
+
+Every rule cites the maintained repo I measured it on. `sindresorhus/got` is
+why `files` and `exports` are checked. `wshobson/agents` is why plugin JSON
+validity is a CI gate. `sharkdp/bat` and `clap-rs/clap` are why the licence
+field blocks a Rust crate. See `skills/domain-gates/SKILL.md` for the evidence.
 
 ## What it catches
 
@@ -71,7 +91,7 @@ It writes `README.md`, `AGENTS.md`, thin `CLAUDE.md` and `GEMINI.md` bridges,
 
 ## Status
 
-Working and tested: the validator, the scaffolder, and the hook. 57 tests pass.
+Working and tested: the validator, the scaffolder, and the hook. 86 tests pass.
 Each check is tested against a fixture repo holding exactly the defect under
 test, so a passing suite means the checks discriminate rather than that the
 fixtures are empty.

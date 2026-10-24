@@ -1,8 +1,8 @@
 {
   "name": "repo-release",
   "displayName": "Repo Release",
-  "version": "0.1.1",
-  "description": "Everything a repository needs before it goes public, and the checks that keep it true afterwards. Ships publish, hygiene, versioning and agent-native-repo skills, a template set, and a deterministic validator that a hook runs on the publish commands.",
+  "version": "0.2.0",
+  "description": "Everything a repository needs before it goes public, and the checks that keep it true afterwards. Classifies a repo by domain (plugin, MCP server, library, crate, monorepo) and gates on what that domain actually requires. Ships five skills, a template set, and a validator a hook runs on the publish and release commands.",
   "author": {
     "name": "Synx-x",
     "url": "https://github.com/Synx-x"

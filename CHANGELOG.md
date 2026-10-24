@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-24
+
+### Added
+
+- Domain classification in `scripts/domains.py`. `--domain auto` detects the
+  repo type from marker files in a fixed precedence order, then applies that
+  type's gate. `--list-domains` prints the set.
+- Eight domain gates: `claude-plugin`, `mcp-server`, `monorepo`, `rust-crate`,
+  `node-library`, `python-library`, `docs`, `generic`.
+- The `domain-gates` skill, recording which maintained repo each rule was
+  measured on.
+
+### Changed
+
+- The hook runs `--domain auto` on every publish and release, so a plugin with
+  an invalid manifest is refused before it can be installed by anyone.
+
 ## [0.1.1] - 2026-10-24
 
 ### Fixed
@@ -36,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflow, and an example rule and workflow.
 - MIT and Apache-2.0 license texts.
 
-[Unreleased]: https://github.com/Synx-x/repo-release/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Synx-x/repo-release/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Synx-x/repo-release/releases/tag/v0.2.0
 [0.1.1]: https://github.com/Synx-x/repo-release/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Synx-x/repo-release/releases/tag/v0.1.0

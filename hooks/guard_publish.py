@@ -97,7 +97,10 @@ def repo_dir(payload: dict) -> Path:
 
 
 def validate(repo: Path, profile: str, expected: str = "") -> tuple[int, str]:
-    command = [sys.executable, str(VALIDATOR), str(repo), "--profile", profile, "--quiet"]
+    command = [
+        sys.executable, str(VALIDATOR), str(repo),
+        "--profile", profile, "--quiet", "--domain", "auto",
+    ]
     if expected:
         command += ["--version", expected]
     try:

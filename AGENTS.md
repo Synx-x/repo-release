@@ -14,8 +14,9 @@ while a blocking finding stands.
 
 | Path | Holds |
 |---|---|
-| `skills/` | Four skills: publish, hygiene, versioning, agent-native |
+| `skills/` | Five skills: publish, hygiene, versioning, agent-native, domain-gates |
 | `scripts/validate.py` | The checker. Two profiles, exit 1 on a blocking finding |
+| `scripts/domains.py` | Classifies a repo by domain, then gates on that domain's needs |
 | `scripts/scaffold.py` | Copies the template set into a repo, never overwriting |
 | `hooks/guard_publish.py` | Runs the validator on publish and release commands |
 | `templates/repo/` | Every file a published repo needs, with a comment on why |
@@ -59,6 +60,7 @@ python3 scripts/scaffold.py /tmp/probe --dry-run
 | Working on… | Read |
 |---|---|
 | Adding or narrowing a check | `.agents/rules/check-design.md` |
+| A domain detector or gate | `.agents/rules/check-design.md` |
 | The hook, its modes, its escapes | `.agents/rules/hook-contract.md` |
 | A skill body | `.agents/rules/check-design.md` |
 

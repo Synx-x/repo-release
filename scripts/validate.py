@@ -469,7 +469,20 @@ def main(argv: list[str] | None = None) -> int:
         default="",
         help="check this version instead of the one on disk, for a pending bump",
     )
+    parser.add_argument(
+        "--domain",
+        default="",
+        help="domain gate to apply: auto to detect, a name to force, empty to skip",
+    )
+    parser.add_argument("--list-domains", action="store_true",
+                        help="print the domains this can detect, then exit")
     args = parser.parse_args(argv)
+
+    if args.list_domains:
+        import domains as domain_mod
+        for name, marker in domain_mod.list_domains():
+            print(f"{name:16} {marker}")
+        return 0
 
     repo = Path(args.repo).expanduser().resolve()
     if not repo.is_dir():
@@ -477,6 +490,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     findings = run(repo, args.profile, args.version)
+    resolved = ""
+    if args.domain:
+        import domains as domain_mod
+        resolved, extra = domain_mod.check_domain(repo, args.domain)
+        findings.extend(extra)
     blocking = [f for f in findings if f.severity == "block"]
     warnings = [f for f in findings if f.severity == "warn"]
 
@@ -484,6 +502,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({
             "repo": str(repo),
             "profile": args.profile,
+            "domain": resolved,
             "ok": not blocking,
             "counts": {"block": len(blocking), "warn": len(warnings)},
             "findings": [asdict(f) for f in findings],
@@ -494,8 +513,9 @@ def main(argv: list[str] | None = None) -> int:
             print(finding.line())
         print()
         verdict = "READY" if not blocking else "NOT READY"
+        domain_note = f", domain {resolved}" if resolved else ""
         print(f"{verdict}: {len(blocking)} blocking, {len(warnings)} warning(s) "
-              f"for profile {args.profile}")
+              f"for profile {args.profile}{domain_note}")
 
     return 1 if blocking else 0
 
