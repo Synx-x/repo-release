@@ -117,7 +117,7 @@ It writes `README.md`, `AGENTS.md`, thin `CLAUDE.md` and `GEMINI.md` bridges,
 ## Status
 
 Working and tested: the validator, the scaffold, the hook and the domain
-gates. 89 tests pass. Each check is tested against a fixture repo holding
+gates. 90 tests pass. Each check is tested against a fixture repo holding
 exactly the defect under test, so a passing suite means the checks discriminate
 rather than that the fixtures are empty.
 

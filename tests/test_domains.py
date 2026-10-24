@@ -199,6 +199,16 @@ def test_mcp_with_transport_passes_that_check(tmp_path: Path):
     assert "mcp-transport-undocumented" not in codes(domains.check_mcp_server(repo))
 
 
+def test_mcp_transport_prose_does_not_satisfy_the_check(tmp_path: Path):
+    """`sse` matches inside "accessible". A README about OCR and accessibility
+    passed this check while naming no transport at all."""
+    repo = base(tmp_path)
+    (repo / "README.md").write_text(
+        GOOD_README + "\ntesseract ocr matches its accessible label")
+    (repo / "server.json").write_text('{"name": "x"}')
+    assert "mcp-transport-undocumented" in codes(domains.check_mcp_server(repo))
+
+
 def test_mcp_without_registry_file_warns(tmp_path: Path):
     repo = base(tmp_path)
     (repo / "README.md").write_text(GOOD_README + "\nRuns over stdio.\n")

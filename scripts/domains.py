@@ -281,6 +281,7 @@ def check_claude_plugin(repo: Path) -> list[Finding]:
 # --- mcp-server -----------------------------------------------------------
 
 MCP_MARKERS = ("server.json", "smithery.yaml", "glama.json")
+TRANSPORTS = ("stdio", "http", "sse")
 
 
 def check_mcp_server(repo: Path) -> list[Finding]:
@@ -294,7 +295,10 @@ def check_mcp_server(repo: Path) -> list[Finding]:
     out: list[Finding] = []
     readme = read(repo / "README.md").lower()
 
-    if "stdio" not in readme and "http" not in readme and "sse" not in readme:
+    # Word boundaries matter. `sse` matches inside "accessible", and prose
+    # about accessibility once satisfied this check on a README that named no
+    # transport at all.
+    if not any(re.search(rf"\b{name}\b", readme) for name in TRANSPORTS):
         out.append(Finding("warn", "mcp-transport-undocumented",
                            "README names no transport; a client cannot connect "
                            "without knowing whether it is stdio, http or sse",
