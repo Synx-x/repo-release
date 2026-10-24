@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-24
+
+### Added
+
+- `check_readme_images`, blocking. A README that embeds a local image missing
+  from the repo renders a broken image on the published page. Remote images are
+  not fetched, so the gate stays offline.
+- `check_conformance`, warning only. Five conventions measured across 20
+  top-starred repos on 2026-10-24: a security reporting route, a CI workflow, a
+  dependency-update config, `.gitattributes`, and a `CONTRIBUTING.md`. Each
+  finding states its measured ratio.
+- The `publish-repo` skill now runs its own gate on a second, unrelated repo
+  before trusting a new check. Every check here was written against this tree,
+  and this tree passed all of them.
+
+### Fixed
+
+- The `mcp-server` transport check matched `sse` inside "accessible", so prose
+  about accessibility satisfied it on a README that named no transport.
+
+### Changed
+
+- `.gitattributes`, `SECURITY.md` and `.github/dependabot.yml` added, because
+  the new conformance checks fired on this repo.
+
 ## [0.2.2] - 2026-10-24
 
 ### Fixed

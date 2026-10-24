@@ -36,6 +36,76 @@ def check(repo: Path, name: str):
     return getattr(validate, name)(repo)
 
 
+# --- conformance ----------------------------------------------------------
+
+def test_missing_security_route_warns(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    assert "security-route-missing" in codes(check(repo, "check_conformance"))
+
+
+def test_security_route_in_github_dir_passes(tmp_path: Path):
+    """5 of 20 top repos keep it there, so both locations count."""
+    repo = make_repo(tmp_path)
+    (repo / ".github").mkdir()
+    (repo / ".github" / "SECURITY.md").write_text("Report to security@example.com\n")
+    assert "security-route-missing" not in codes(check(repo, "check_conformance"))
+
+
+def test_no_ci_warns(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    assert "ci-missing" in codes(check(repo, "check_conformance"))
+
+
+def test_workflow_counts_as_ci(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    (repo / ".github" / "workflows").mkdir(parents=True)
+    (repo / ".github" / "workflows" / "ci.yml").write_text("on: push\n")
+    assert "ci-missing" not in codes(check(repo, "check_conformance"))
+
+
+def test_renovate_counts_as_dependency_updates(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    (repo / ".github").mkdir()
+    (repo / ".github" / "renovate.json5").write_text("{}\n")
+    assert "dep-updates-unconfigured" not in codes(check(repo, "check_conformance"))
+
+
+def test_conformance_never_blocks(tmp_path: Path):
+    """A missing SECURITY.md is a gap, not a broken install. A gate that
+    blocks on conventions half the top repos skip gets switched off."""
+    found = check(make_repo(tmp_path), "check_conformance")
+    assert not [f for f in found if f.severity == "block"]
+
+
+# --- readme images --------------------------------------------------------
+
+def test_local_image_that_is_missing_blocks(tmp_path: Path):
+    """A 404 image is the most visible publish failure, and until 0.3.0
+    nothing checked it."""
+    repo = make_repo(tmp_path)
+    (repo / "README.md").write_text(GOOD_README + "\n![demo](docs/demo.png)\n")
+    found = check(repo, "check_readme_images")
+    assert "readme-image-missing" in codes(found)
+    assert any(f.code == "readme-image-missing" and f.severity == "block"
+               for f in found)
+
+
+def test_local_image_that_exists_passes(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    (repo / "demo.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+    (repo / "README.md").write_text(GOOD_README + "\n![demo](demo.png)\n")
+    assert "readme-image-missing" not in codes(check(repo, "check_readme_images"))
+
+
+def test_remote_image_is_not_fetched(tmp_path: Path):
+    """The check stays offline. A hosted image may be fine and a network call
+    in a publish gate is a new failure mode."""
+    repo = make_repo(tmp_path)
+    (repo / "README.md").write_text(
+        GOOD_README + "\n![demo](https://example.com/x.png)\n")
+    assert "readme-image-missing" not in codes(check(repo, "check_readme_images"))
+
+
 # --- surface --------------------------------------------------------------
 
 def test_complete_surface_passes(tmp_path: Path):

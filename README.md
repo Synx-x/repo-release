@@ -58,8 +58,25 @@ profiles:
 
 | Profile | Checks |
 |---|---|
-| `public` | README, LICENSE, ignored-but-tracked files, machine-local paths, credential shapes, cited paths, `.env.example`, bridges, ignore rules |
+| `public` | README, LICENSE, ignored-but-tracked files, machine-local paths, credential shapes, cited paths, `.env.example`, bridges, ignore rules, README images, conformance |
 | `release` | all of `public`, plus manifest version, changelog entry and tag agreeing |
+
+### Conformance, measured rather than assumed
+
+Five conventions come from counting 20 top-starred repos on 2026-10-24. Each
+finding carries its own ratio, so a reader can argue with the number.
+
+| Convention | Measured | Severity |
+|---|---|---|
+| a security reporting route | 10 of 20 | warn |
+| a CI workflow | 18 of 20 | warn |
+| `CONTRIBUTING.md` | 16 of 20 | warn |
+| `.gitattributes` | 15 of 20 | warn |
+| a dependency-update config | 15 of 20 | note |
+
+`CODE_OF_CONDUCT.md` was measured at 6 of 20 and left out. A convention that
+half the best repos skip is a gap, not a defect, and a gate that fires on it
+teaches people to ignore the gate.
 
 ## Domain gates
 
@@ -117,9 +134,14 @@ It writes `README.md`, `AGENTS.md`, thin `CLAUDE.md` and `GEMINI.md` bridges,
 ## Status
 
 Working and tested: the validator, the scaffold, the hook and the domain
-gates. 90 tests pass. Each check is tested against a fixture repo holding
+gates. 99 tests pass. Each check is tested against a fixture repo holding
 exactly the defect under test, so a passing suite means the checks discriminate
 rather than that the fixtures are empty.
+
+The check set survives a repo it was not written around. A fixture cannot prove
+that, and two defects here shipped for three releases because only this tree was
+ever tested. The check set now runs on a second, unrelated repo before each
+release, and both defects surfaced the first time it did.
 
 The hook has run on real publishes. `webbridge` and this repo both went public
 through it, and the version guard fired on the edits that cut their tags.

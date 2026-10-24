@@ -23,6 +23,17 @@ Audit, then research, then build, then publish, then verify. Building first
 means rewriting once the audit and the destination's conventions turn out to
 differ.
 
+## 0. Run the gate on a repo that is not this one
+
+A validator only proves itself on repos it did not grow up beside. Every check
+in this plugin was written against its own tree, and its own tree passed all of
+them. Then a gate ran on a second repo and found two defects the plugin had
+carried for three releases: a manifest pointing at a directory that did not
+exist, and a transport check that matched `sse` inside the word "accessible".
+
+So audit a second, unrelated repo before trusting a new check. The failures that
+matter are the ones the author's own repo cannot show.
+
 ## 1. Audit before anything is public
 
 Publishing is irreversible in the way that matters. The repo is indexed, cached

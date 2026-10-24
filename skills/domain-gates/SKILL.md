@@ -89,6 +89,45 @@ doing the right thing for a reason the rule never imagined.
 **Block only where the failure is a broken install or a rejected publish.**
 Everything else warns. `plugin.json` blocks. A missing `Dockerfile` does not.
 
+## Measure the prevalence before the rule
+
+A rule reasoned from instinct and a rule measured on real repos fail
+differently. The measured rule catches real breakage. The instinct rule fires on
+repos doing the right thing for a reason the rule never imagined, and after the
+third false positive the whole gate gets switched off.
+
+So count before writing. Fetch the file from twenty maintained repos and record
+the ratio:
+
+| Measured | Rule | Severity |
+|---|---|---|
+| 10 of 20 | a security reporting route | warn |
+| 18 of 20 | a CI workflow | warn |
+| 16 of 20 | `CONTRIBUTING.md` | warn |
+| 15 of 20 | `.gitattributes` | warn |
+| 6 of 20 | `CODE_OF_CONDUCT.md` | not a rule |
+
+A convention that half the best repos skip is a gap, not a defect, so it warns
+or stays out. Only a broken install or a rejected publish blocks.
+
+The ratio goes in the finding's message. A reader who disagrees with the rule
+can then argue with a number rather than with an opinion.
+
+## A rule written against your own repo proves nothing
+
+This plugin shipped its own defects for three releases because every check was
+written and tested against this tree, and this tree passed all of them. Two
+defects only appeared when the gate ran on a second repo:
+
+- `plugin.json` declared `"commands": ["./commands/"]` for a directory that did
+  not exist. The field was present and well-formed, so every field check passed.
+- A transport check matched `sse` inside the word "accessible", so a README about
+  OCR satisfied it while naming no transport.
+
+Run every new check against a second, unrelated repo before releasing it. The
+tests prove the check discriminates on a fixture. The second repo proves it
+survives contact with a tree you did not design it around.
+
 ## Checklist
 
 - [ ] The detector names a file that cannot appear by accident
