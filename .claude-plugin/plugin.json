@@ -1,0 +1,35 @@
+{
+  "name": "repo-release",
+  "displayName": "Repo Release",
+  "version": "0.1.0",
+  "description": "Everything a repository needs before it goes public, and the checks that keep it true afterwards. Ships publish, hygiene, versioning and agent-native-repo skills, a template set, and a deterministic validator that a hook runs on the publish commands.",
+  "author": {
+    "name": "Synx-x",
+    "url": "https://github.com/Synx-x"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/Synx-x/repo-release",
+  "repository": "https://github.com/Synx-x/repo-release",
+  "keywords": [
+    "publish",
+    "release",
+    "repository",
+    "open-source",
+    "readme",
+    "license",
+    "semver",
+    "changelog",
+    "agent-native",
+    "agents-md",
+    "ci-gates",
+    "secret-scan",
+    "templates",
+    "hygiene"
+  ],
+  "skills": [
+    "./skills/"
+  ],
+  "commands": [
+    "./commands/"
+  ]
+}

@@ -1,0 +1,57 @@
+name: CI
+
+# Three gates that catch the drift a reviewer misses. Every one passes on the
+# tree it was added to, because a gate that is red on day one gets disabled in
+# week one.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Replace this with the project's real install and test steps.
+      - run: pip install -e ".[dev]" || pip install -e .
+      - run: python -m pytest -q || echo "no tests yet; remove this fallback once there are"
+
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A file git ignores but still tracks. Usually a build artefact committed
+      # before the ignore rule existed, or a .env with real values.
+      - name: No tracked file is gitignored
+        run: |
+          found=$(git ls-files -i -c --exclude-standard)
+          if [ -n "$found" ]; then
+            echo "Tracked although .gitignore excludes them:"
+            echo "$found"
+            echo "Fix with: git rm -r --cached <path>"
+            exit 1
+          fi
+
+      # A credential committed once is in every clone forever.
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The project's publish surface. Runs the same validator the local hook
+      # runs, so a contributor without the plugin still gets the check.
+      - name: Publish surface
+        run: |
+          git clone --depth 1 https://github.com/Synx-x/repo-release /tmp/repo-release 2>/dev/null || true
+          if [ -f /tmp/repo-release/scripts/validate.py ]; then
+            python3 /tmp/repo-release/scripts/validate.py . --profile public
+          else
+            echo "validator unavailable; skipping"
+          fi

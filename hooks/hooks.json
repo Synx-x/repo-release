@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_publish.py\"",
+            "timeout": 90,
+            "statusMessage": "Checking the publish surface"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_publish.py\"",
+            "timeout": 90,
+            "statusMessage": "Checking release coherence"
+          }
+        ]
+      }
+    ]
+  }
+}

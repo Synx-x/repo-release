@@ -1,0 +1,20 @@
+{
+  "name": "repo-release",
+  "owner": {
+    "name": "Synx-x"
+  },
+  "metadata": {
+    "description": "Publish surface, repository hygiene and release discipline for any repo, with templates and a deterministic validator."
+  },
+  "plugins": [
+    {
+      "name": "repo-release",
+      "source": "./",
+      "description": "Publish surface, repository hygiene and release discipline for any repo, with templates and a deterministic validator.",
+      "author": {
+        "name": "Synx-x"
+      },
+      "category": "development"
+    }
+  ]
+}
