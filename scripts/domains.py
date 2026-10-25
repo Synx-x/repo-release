@@ -424,6 +424,12 @@ def check_node_library(repo: Path) -> list[Finding]:
 
 
 def check_monorepo(repo: Path) -> list[Finding]:
+    """A monorepo needs CI. CODEOWNERS only helps once teams own packages.
+
+    Evidence: vercel/turborepo ships `turbo.json`, `pnpm-workspace.yaml` and
+    a set of workflows under `.github/workflows`, and no CODEOWNERS. So CI
+    warns and CODEOWNERS stays a note.
+    """
     out: list[Finding] = []
     workflows = list((repo / ".github" / "workflows").glob("*.yml")) \
         if (repo / ".github" / "workflows").is_dir() else []
@@ -438,6 +444,11 @@ def check_monorepo(repo: Path) -> list[Finding]:
 
 
 def check_docs(repo: Path) -> list[Finding]:
+    """A docs repo is read from its README, which GitHub renders as the landing page.
+
+    Evidence: github/docs keeps `README.md` at the root as the entry point to
+    the content tree. A docs repo without one opens on a bare file list.
+    """
     out: list[Finding] = []
     if not (repo / "README.md").exists():
         out.append(Finding("block", "docs-no-index",
