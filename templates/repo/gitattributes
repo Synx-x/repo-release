@@ -1,0 +1,6 @@
+# Line endings: LF in the repo on every platform. Without this, a Windows
+# contributor commits CRLF and every diff touches every line.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary

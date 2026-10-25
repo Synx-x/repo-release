@@ -112,9 +112,22 @@ The record lives in `.git/repo-release/`, so it is never published. A new
 commit voids every attestation, so a judgement about an older tree never covers
 a newer one.
 
-Items that cannot apply are marked `[-]` and skipped: the agent-native items on
-a repo with no `AGENTS.md`, the domain-gate items on a repo that builds no
-domain gates.
+Nothing is skipped silently. A missing file never excuses an item: the
+`scaffold-complete` item requires every template file, with every placeholder
+filled, so a repo without `AGENTS.md` fails rather than skips the agent-native
+items. Run `scripts/scaffold.py` to add the missing files, then fill them.
+
+An item that genuinely does not apply, such as the domain-gate items on a repo
+that builds no domain gates, still blocks until a reader confirms it. One
+record covers a whole skill or a single item:
+
+```bash
+python3 scripts/checklist.py . attest na:domain-gates --evidence "a CLI with no domain detector"
+```
+
+The `domain-review` item asks the model to review what the detected domain
+needs at runtime, add it, and record the review. The record must name the
+detected domain, so a review of the wrong repo type does not pass.
 
 ## Domain gates
 

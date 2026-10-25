@@ -212,3 +212,5 @@ a repo someone trusts and one they quietly close.
 - [ ] Published page fetched and checked
 - [ ] Every README image returns 200
 - [ ] Open gaps written down
+- [ ] Every template file scaffolded, every placeholder filled
+- [ ] Domain-specific additions reviewed and added for the detected domain

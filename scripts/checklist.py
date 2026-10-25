@@ -224,12 +224,11 @@ def ignored_clean(repo: Path) -> Result:
 
 
 def env_ignored(repo: Path) -> Result:
-    notes = {f.code for f in findings(repo, validate.check_env_example)}
-    if "env-none" in notes:
-        return "na", "the source reads no environment variable"
     status, detail = none_of(repo, validate.check_env_example)
     if status != "pass":
         return status, detail
+    if not (repo / ".env.example").exists():
+        return "fail", "no .env.example; the scaffold writes one"
     probe = subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", ".env"])
     if probe.returncode != 0:
         return "fail", ".env is not ignored"
@@ -280,10 +279,10 @@ def ci_shape(repo: Path) -> Result:
 def docs_indexed(repo: Path) -> Result:
     docs = repo / "docs"
     if not docs.is_dir():
-        return "na", "no docs/"
+        return "pass", "no docs/, so nothing to index"
     pages = [p for p in docs.glob("*.md") if p.name.lower() not in ("readme.md", "index.md")]
     if len(pages) <= 3:
-        return "na", f"docs/ holds {len(pages)} document(s)"
+        return "pass", f"docs/ holds {len(pages)} document(s), under the index threshold"
     if not ((docs / "README.md").exists() or (docs / "index.md").exists()):
         return "fail", f"docs/ holds {len(pages)} documents and no README.md or index.md"
     return "pass", ""
@@ -392,8 +391,8 @@ def golden_rules(repo: Path) -> Result:
 
 def rules_indexed(repo: Path) -> Result:
     folder = repo / ".agents" / "rules"
-    if not folder.is_dir():
-        return "na", "no .agents/rules/"
+    if not folder.is_dir() or not list(folder.glob("*.md")):
+        return "fail", "no rule file under .agents/rules/; the scaffold writes one"
     text = validate.read(repo / "AGENTS.md")
     missing = [p.name for p in sorted(folder.glob("*.md")) if p.name not in text]
     return ("fail", f"AGENTS.md never names {missing}") if missing else ("pass", "")
@@ -444,6 +443,62 @@ def domains_agree(repo: Path) -> Result:
     if listed != checked:
         return "fail", f"differ: {sorted(listed ^ checked)}"
     return "pass", f"{len(listed)} domains"
+
+
+TEMPLATES = PLUGIN_ROOT / "templates" / "repo"
+
+# Placeholders a scaffolded file must not keep. Single generic words such as
+# <file> or <path> are left out, because real usage text uses them too.
+PLACEHOLDER = re.compile(r"<(?:[A-Za-z][A-Za-z-]*\s[^<>\n]{1,60}|name|NAME|YEAR|"
+                         r"repo-url|YYYY-MM-DD|Concern|contact|secret)>")
+
+
+def scaffold_targets() -> list[tuple[Path, Path]]:
+    """(template, destination) for every file the scaffold writes."""
+    import scaffold
+    pairs = []
+    for source in sorted(TEMPLATES.rglob("*")):
+        if source.is_file():
+            pairs.append((source, scaffold.destination_for(source.relative_to(TEMPLATES))))
+    return pairs
+
+
+def scaffold_complete(repo: Path) -> Result:
+    missing, unfilled = [], []
+    for source, dest in scaffold_targets():
+        # The example rule and workflow are samples: any file in the folder counts.
+        if dest.parent.name in ("rules", "workflows") and dest.parent.parent.name == ".agents":
+            if not list((repo / dest.parent).glob("*.md")):
+                missing.append(f"{dest.parent}/")
+            continue
+        target = repo / dest
+        if not target.exists():
+            missing.append(dest.as_posix())
+            continue
+        tokens = set(PLACEHOLDER.findall(validate.read(source)))
+        left = [t for t in tokens if t in validate.read(target)]
+        if left:
+            unfilled.append(f"{dest.as_posix()} {left[0]}")
+    if not (repo / "LICENSE").exists():
+        missing.append("LICENSE")
+    if missing:
+        return "fail", (f"not scaffolded: {', '.join(missing[:6])}. Run "
+                        f"`scaffold.py {repo}`, then fill each file")
+    if unfilled:
+        return "fail", f"placeholder left: {'; '.join(unfilled[:3])}"
+    return "pass", "every template file present and filled"
+
+
+def domain_review(repo: Path) -> Result:
+    import domains
+    domain = domains.detect(repo)
+    status, detail = attested(repo, "domain-review")
+    if status != "pass":
+        return "attest", (f"detected domain `{domain}`: review what it needs, add it, "
+                          f"then `attest domain-review` naming `{domain}`")
+    if domain not in detail:
+        return "attest", f"the review does not name the detected domain `{domain}`"
+    return status, detail
 
 
 # --- remote checks ----------------------------------------------------------
@@ -561,6 +616,12 @@ ITEMS: list[Item] = [
          BOTH, "remote", images_ok),
     Item("gaps-written", "publish-repo", "Open gaps written down",
          BOTH, "attest", attest("gaps-written")),
+    Item("scaffold-complete", "publish-repo",
+         "Every template file scaffolded, every placeholder filled",
+         BOTH, "auto", scaffold_complete),
+    Item("domain-review", "publish-repo",
+         "Domain-specific additions reviewed and added for the detected domain",
+         BOTH, "attest", domain_review),
     # repo-hygiene
     Item("ignored-clean", "repo-hygiene",
          "`git ls-files -i -c --exclude-standard` prints nothing", BOTH, "auto", ignored_clean),
@@ -632,14 +693,29 @@ ITEMS: list[Item] = [
 
 
 def applies(repo: Path, item: Item) -> str:
-    """Return why an item does not apply, or an empty string when it does."""
-    if item.skill == "agent-native-repo" and not (repo / "AGENTS.md").exists():
-        return "no AGENTS.md: the repo is not agent-native"
+    """Return why an item may not apply, or an empty string when it does.
+
+    A missing file is never a reason. The scaffold writes every file, so a
+    missing AGENTS.md or CONTRIBUTING.md fails its items rather than excusing
+    them. Only the domain decides, and a reader confirms that decision.
+    """
     if item.skill == "domain-gates" and not (repo / "scripts" / "domains.py").exists():
         return "the repo builds no domain gates"
-    if item.id == "contributing-lead" and not (repo / "CONTRIBUTING.md").exists():
-        return "no CONTRIBUTING.md"
     return ""
+
+
+def reviewed(repo: Path, item: Item, reason: str) -> Result:
+    """An item that does not apply still needs a reader to say so.
+
+    One record covers a whole skill (`na:domain-gates`) or a single item
+    (`na:page-fetched`). Nothing is skipped silently.
+    """
+    for key in (f"na:{item.id}", f"na:{item.skill}"):
+        status, detail = attested(repo, key)
+        if status == "pass":
+            return "na", f"reviewed: {detail.removeprefix('attested: ')}"
+    return "attest", (f"may not apply ({reason}): confirm with "
+                      f"`attest na:{item.id}` or `attest na:{item.skill}`")
 
 
 def evaluate(repo: Path, profile: str) -> list[tuple[Item, str, str]]:
@@ -649,12 +725,14 @@ def evaluate(repo: Path, profile: str) -> list[tuple[Item, str, str]]:
             continue
         reason = applies(repo, item)
         if reason:
-            rows.append((item, "na", reason))
+            rows.append((item, *reviewed(repo, item, reason)))
             continue
         try:
             status, detail = item.check(repo)
         except Exception as exc:  # a crashed check is a fail, never a pass
             status, detail = "fail", f"check crashed: {exc}"
+        if status == "na":
+            status, detail = reviewed(repo, item, detail)
         rows.append((item, status, detail))
     return rows
 
@@ -677,8 +755,10 @@ def render(rows, profile: str) -> str:
 
 
 def record(repo: Path, item_id: str, evidence: str) -> int:
-    known = {i.id for i in ITEMS if i.kind == "attest"} | {"readme-lead", "secrets-rotated"}
-    if item_id not in known:
+    known = {i.id for i in ITEMS if i.kind == "attest"} | {
+        "readme-lead", "secrets-rotated", "domain-review"}
+    na_keys = {f"na:{i.id}" for i in ITEMS} | {f"na:{i.skill}" for i in ITEMS}
+    if item_id not in known | na_keys:
         print(f"{item_id} is not an attestable item: {sorted(known)}", file=sys.stderr)
         return 2
     if len(evidence.strip()) < MIN_EVIDENCE:

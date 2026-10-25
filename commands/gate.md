@@ -9,7 +9,9 @@ Run the checklist the publish hook will run, then close what it reports. The tar
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/checklist.py" "${1:-.}" --profile "${2:-release}"
 ```
 
-Each line is one step a skill names. `[x]` holds, `[ ]` fails, `[?]` needs a reader's judgement, `[-]` does not apply to this repo.
+Each line is one step a skill names. `[x]` holds, `[ ]` fails, `[?]` needs a reader's judgement, `[-]` means a reader reviewed the step and it does not apply.
+
+When `scaffold-complete` fails, run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.py" "${1:-.}"` and fill every file it writes with this repo's real content. For `domain-review`, read what the detected domain needs in the `domain-gates` skill, add it, then record the review naming the domain. For an item that says "may not apply", confirm it with `attest na:<item>` or `attest na:<skill>` and say why.
 
 Close a `[ ]` item by fixing the repo, then rerun. Close a `[?]` item only after you have done the check it names. Then record what you found against the current commit:
 

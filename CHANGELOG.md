@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-25
+
+### Changed
+
+- **Breaking:** nothing is skipped silently. In 0.4.0 a repo without
+  `AGENTS.md` skipped all nine agent-native items, so the missing file excused
+  itself. Now a missing file fails its items. An item that genuinely does not
+  apply blocks until a reader records why, with `attest na:<item>` or
+  `attest na:<skill>`. To upgrade, scaffold the missing files with
+  `scripts/scaffold.py` and record a review for each skill that does not apply.
+- `docs-indexed` passes on a repo with no `docs/` instead of skipping, because
+  the rule holds when there is nothing to index.
+
+### Added
+
+- `scaffold-complete` item: every file the scaffold writes must exist with its
+  placeholders filled.
+- `domain-review` item: the model reviews what the detected domain needs at
+  runtime, adds it, and records a review naming that domain.
+- A `.gitattributes` template, so the scaffold writes one.
+- `.agents/workflows/release.md`, the release steps for this repo.
+
 ## [0.4.0] - 2026-10-25
 
 ### Added

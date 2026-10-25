@@ -23,7 +23,7 @@ from pathlib import Path
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = PLUGIN_ROOT / "templates"
 
-RENAMES = {"gitignore": ".gitignore", "ci.yml": "ci.yml"}
+RENAMES = {"gitignore": ".gitignore", "gitattributes": ".gitattributes", "ci.yml": "ci.yml"}
 
 SUBSTITUTIONS = {
     "<name>": "name",

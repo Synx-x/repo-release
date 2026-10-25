@@ -182,8 +182,69 @@ def test_tracked_build_output_fails(tmp_path: Path):
     assert status(repo, "no-build-output") == "fail"
 
 
-def test_agent_native_items_skip_a_repo_without_agents_md(tmp_path: Path):
-    assert status(git_repo(tmp_path), "golden-rules") == "na"
+def test_a_missing_agents_md_fails_instead_of_skipping(tmp_path: Path):
+    assert status(git_repo(tmp_path), "golden-rules") == "fail"
+
+
+# --- nothing is skipped silently ------------------------------------------
+
+def test_an_inapplicable_item_needs_a_review(tmp_path: Path):
+    assert status(git_repo(tmp_path), "domains-agree") == "attest"
+
+
+def test_one_skill_review_covers_every_item_in_it(tmp_path: Path):
+    repo = git_repo(tmp_path)
+    assert checklist.record(repo, "na:domain-gates",
+                            "a CLI with no domain detector, so no gate to build") == 0
+    rows = {i.id: s for i, s, _ in checklist.evaluate(repo, "release") if i.skill == "domain-gates"}
+    assert set(rows.values()) == {"na"}
+
+
+def test_an_item_review_covers_only_that_item(tmp_path: Path):
+    repo = git_repo(tmp_path)
+    checklist.record(repo, "na:precedence", "no detector list exists in this repo at all")
+    assert status(repo, "precedence") == "na"
+    assert status(repo, "domains-agree") == "attest"
+
+
+# --- scaffold and domain review -------------------------------------------
+
+def scaffolded(tmp_path: Path) -> Path:
+    repo = git_repo(tmp_path)
+    subprocess.run([sys.executable, str(PLUGIN_ROOT / "scripts" / "scaffold.py"), str(repo),
+                    "--name", "thing", "--owner", "me", "--repo-url", "https://x/y"],
+                   check=True, capture_output=True)
+    return repo
+
+
+def test_an_unscaffolded_repo_fails(tmp_path: Path):
+    assert status(git_repo(tmp_path), "scaffold-complete") == "fail"
+
+
+def test_a_raw_scaffold_fails_on_its_placeholders(tmp_path: Path):
+    rows = {i.id: (s, d) for i, s, d in checklist.evaluate(scaffolded(tmp_path), "public")}
+    state, detail = rows["scaffold-complete"]
+    assert state == "fail" and "placeholder left" in detail
+
+
+def test_a_filled_scaffold_passes(tmp_path: Path):
+    repo = scaffolded(tmp_path)
+    for path in repo.rglob("*"):
+        if path.is_file() and ".git" not in path.parts:
+            text = path.read_text()
+            path.write_text(checklist.PLACEHOLDER.sub("filled", text))
+    assert status(repo, "scaffold-complete") == "pass"
+
+
+def test_domain_review_must_name_the_detected_domain(tmp_path: Path):
+    repo = git_repo(tmp_path)
+    (repo / "pyproject.toml").write_text('[project]\nname = "x"\n')
+    commit(repo, "pyproject")
+    checklist.record(repo, "domain-review", "reviewed the repo and added what it needs")
+    assert status(repo, "domain-review") == "attest"
+    checklist.record(repo, "domain-review",
+                     "python-library: added tests/ and requires-python; no py.typed, untyped")
+    assert status(repo, "domain-review") == "pass"
 
 
 def test_golden_rule_without_a_rule_file_fails(tmp_path: Path):
