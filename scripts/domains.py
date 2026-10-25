@@ -340,7 +340,10 @@ def check_python_library(repo: Path) -> list[Finding]:
                            "pyproject.toml"))
     if not (repo / "tests").is_dir():
         out.append(Finding("warn", "python-no-tests", "no tests directory"))
-    annotations = any("->" in read(p) for p in repo.rglob("*.py") if p.stat().st_size < 200000)
+    # Tests are not shipped, so their annotations reach no consumer.
+    annotations = any("->" in read(p) for p in repo.rglob("*.py")
+                      if p.stat().st_size < 200000
+                      and not {"tests", "test"} & set(p.relative_to(repo).parts))
     py_typed = any(p.name == "py.typed" for p in repo.rglob("py.typed"))
     if annotations and not py_typed:
         out.append(Finding("warn", "python-not-typed-marker",

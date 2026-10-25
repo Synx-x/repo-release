@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A `.gitattributes` template, so the scaffold writes one.
 - `.agents/workflows/release.md`, the release steps for this repo.
 
+### Fixed
+
+- `python-not-typed-marker` no longer fires on annotations in `tests/`. Tests
+  are not shipped, so `py.typed` does nothing for them. Found by the first
+  `domain-review` run, on `game-tune`.
+
 ## [0.4.0] - 2026-10-25
 
 ### Added

@@ -232,6 +232,16 @@ def test_python_annotations_without_py_typed_warns(tmp_path: Path):
     assert "python-not-typed-marker" in codes(domains.check_python_library(repo))
 
 
+def test_annotations_only_in_tests_need_no_py_typed(tmp_path: Path):
+    """game-tune ships a script, and only its tests carry annotations."""
+    repo = base(tmp_path)
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname = "x"\nrequires-python = ">=3.11"\n')
+    (repo / "tests").mkdir()
+    (repo / "tests" / "test_x.py").write_text("def make() -> int:\n    return 1\n")
+    assert "python-not-typed-marker" not in codes(domains.check_python_library(repo))
+
+
 def test_rust_without_license_field_blocks(tmp_path: Path):
     repo = base(tmp_path)
     (repo / "Cargo.toml").write_text('[package]\nname = "x"\n')
