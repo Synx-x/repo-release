@@ -184,6 +184,21 @@ registry that cannot accept submissions yet, a test count nobody re-ran. An
 honest gap list beats a claim of completeness, and it is the difference between
 a repo someone trusts and one they quietly close.
 
+## Failure modes
+
+- **The directory is not a git repo yet.** Create it first, as its own repo on
+  the branch you mean to publish:
+
+  ```bash
+  git init -b main
+  ```
+
+  Without its own `.git`, everything that resolves a path from the file's
+  repository resolves against the enclosing superproject instead. A
+  PreToolUse guard then reports every cited file as missing even though it sits
+  right there, and the validator prints the branch as `detached` because no
+  branch exists yet. Both read as content defects and are neither.
+
 ## Checklist
 
 - [ ] Validator exits 0 on `--profile public`

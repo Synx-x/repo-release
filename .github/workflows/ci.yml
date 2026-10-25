@@ -44,4 +44,4 @@ jobs:
 
       - name: Hook is executable and parses
         run: |
-          python3 -m py_compile hooks/guard_publish.py scripts/validate.py scripts/scaffold.py
+          python3 -m py_compile hooks/guard_publish.py scripts/validate.py scripts/scaffold.py scripts/checklist.py scripts/domains.py

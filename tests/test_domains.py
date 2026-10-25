@@ -288,3 +288,37 @@ def test_unknown_domain_warns(tmp_path: Path):
 def test_list_domains_covers_every_gate():
     listed = {name for name, _marker in domains.list_domains()}
     assert listed == set(domains.DOMAIN_CHECKS)
+
+
+# --- gates the checklist found untested -----------------------------------
+
+def test_cli_without_entrypoint_or_usage_warns(tmp_path: Path):
+    repo = base(tmp_path)
+    found = codes(domains.check_cli_tool(repo))
+    assert {"cli-no-entrypoint", "cli-no-usage"} <= found
+
+
+def test_cli_with_script_and_usage_is_clean(tmp_path: Path):
+    repo = base(tmp_path)
+    (repo / "pyproject.toml").write_text('[project.scripts]\nthing = "thing:main"\n')
+    (repo / "README.md").write_text(GOOD_README + "\n## Usage\n\n```\nthing run\n```\n")
+    assert not codes(domains.check_cli_tool(repo)) & {"cli-no-entrypoint", "cli-no-usage"}
+
+
+def test_monorepo_without_ci_warns(tmp_path: Path):
+    assert "monorepo-no-ci" in codes(domains.check_monorepo(base(tmp_path)))
+
+
+def test_monorepo_with_ci_is_clean(tmp_path: Path):
+    repo = base(tmp_path)
+    (repo / ".github" / "workflows").mkdir(parents=True)
+    (repo / ".github" / "workflows" / "ci.yml").write_text("on: push\n")
+    assert "monorepo-no-ci" not in codes(domains.check_monorepo(repo))
+
+
+def test_docs_without_readme_blocks(tmp_path: Path):
+    repo = tmp_path / "docs"
+    repo.mkdir()
+    assert "docs-no-index" in codes(domains.check_docs(repo))
+    (repo / "README.md").write_text("# Docs\n")
+    assert "docs-no-index" not in codes(domains.check_docs(repo))

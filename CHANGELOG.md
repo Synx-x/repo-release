@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-25
+
+### Added
+
+- `scripts/checklist.py`, the checklist gate. Every line of every skill's
+  `## Checklist` is now a gate item the publish hook runs, with 41 items in all.
+  Before this, the validator checked files and nothing checked the steps, so a
+  skipped step met no resistance. Items are `auto` (code decides), `remote`
+  (GitHub or the network decides) or `attest` (a reader decides, and records
+  evidence against the HEAD commit). A new commit voids every attestation.
+- `/repo-release:gate` runs the checklist and walks the open items.
+- A drift test fails when a skill gains a checklist line the gate does not map.
+- The hook now catches `git push --follow-tags`, a pushed version tag,
+  `git -C DIR push`, `gh release edit --draft=false`, a `gh api` call that
+  creates a release, and `uv`, `poetry` and `flit` publishes. It follows
+  `cd DIR &&` to the directory the command acts on.
+- A tamper guard. The hook refuses an edit to the installed plugin, a write to
+  the approval store, and a settings change that sets `REPO_RELEASE_MODE` or
+  disables the plugin. `off` mode does not lift it.
+- Tests for `check_cli_tool`, `check_monorepo`, `check_docs` and
+  `check_ignored_tracked`, which the new gate found untested.
+- The `publish-repo` skill names a failure mode: a directory with no `.git` of
+  its own resolves paths against the enclosing repo, so the guards misreport.
+  Two evals pin it.
+
+### Changed
+
+- **Breaking:** only the user can grant an exception. `[publish-ok]` in a
+  command and `[release-ok]` in a version edit no longer pass the gate, because
+  the agent being gated could type them. To grant one exception, type
+  `[publish-ok]` in your prompt instead. It covers the next publish or version
+  edit in that session, within 30 minutes.
+
+### Fixed
+
+- `.env` is now ignored in this repo. The new `env-files` item caught it.
+
 ## [0.3.2] - 2026-10-24
 
 ### Added

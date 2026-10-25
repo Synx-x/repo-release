@@ -6,9 +6,10 @@ import this file. Edit conventions here.
 ## What this is
 
 A Claude Code plugin holding the publish surface, repository hygiene and release
-discipline for any repo. Four skills explain the why, `scripts/validate.py`
-decides the whether, and `hooks/guard_publish.py` blocks the publish command
-while a blocking finding stands.
+discipline for any repo. Five skills explain the why. `scripts/validate.py`
+decides whether the files hold, and `scripts/checklist.py` decides whether every
+skill checklist step was done. `hooks/guard_publish.py` blocks the publish
+command until both pass.
 
 ## Repo map
 
@@ -17,6 +18,7 @@ while a blocking finding stands.
 | `skills/` | Five skills: publish, hygiene, versioning, agent-native, domain-gates |
 | `scripts/validate.py` | The checker. Two profiles, exit 1 on a blocking finding |
 | `scripts/domains.py` | Classifies a repo by domain, then gates on that domain's needs |
+| `scripts/checklist.py` | Every skill checklist line as a gate item: auto, remote or attest |
 | `scripts/scaffold.py` | Copies the template set into a repo, never overwriting |
 | `hooks/guard_publish.py` | Runs the validator on publish and release commands |
 | `templates/repo/` | Every file a published repo needs, with a comment on why |
@@ -36,6 +38,7 @@ while a blocking finding stands.
 ```bash
 python3 -m pytest tests -q
 python3 scripts/validate.py . --profile release
+python3 scripts/checklist.py . --profile release
 python3 scripts/scaffold.py /tmp/probe --dry-run
 ```
 
@@ -54,6 +57,12 @@ python3 scripts/scaffold.py /tmp/probe --dry-run
 5. **The scaffolder never overwrites.** A scaffold that clobbers a
    hand-written README gets run once and never trusted again. See
    `.agents/rules/hook-contract.md`.
+6. **Only the user grants an exception.** An escape the agent can type is an
+   escape the agent takes, and the gate then holds nothing. See
+   `.agents/rules/hook-contract.md`.
+7. **Every skill checklist line has a gate item.** A line with no item is
+   advice, and advice is skipped late in a session. See
+   `.agents/rules/check-design.md`.
 
 ## Rules index
 

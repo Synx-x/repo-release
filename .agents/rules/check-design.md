@@ -25,6 +25,13 @@ def check_env_example(repo: Path) -> list[Finding]:
                         "no .env.example listing them")]
 ```
 
+**Gate every checklist line.** Each `- [ ]` line under a skill's
+`## Checklist` maps to one item in `scripts/checklist.py`, quoted verbatim.
+`tests/test_checklist.py` fails on a line with no item and on an item whose line
+changed. Pick the item's kind by who can decide it: code decides `auto`, GitHub
+or the network decides `remote`, and only a reader decides `attest`. Prefer
+`auto`. An `attest` item asks the agent for evidence, which is weaker than code.
+
 ## Why
 
 **This has bitten before.** The first draft of `check_absolute_paths` matched

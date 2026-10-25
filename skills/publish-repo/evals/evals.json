@@ -1,0 +1,28 @@
+{
+  "skill_name": "publish-repo",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Publish /home/me/dev/widget, a working Python CLI nobody has released yet, as a public GitHub repo.",
+      "expected_output": "The repo is initialized as its own git repo before any agent-facing file is written, then audited with validate.py, built from templates, published, and verified.",
+      "files": [],
+      "expectations": [
+        "The assistant runs the public validator and reports the blocking findings before creating the GitHub repo",
+        "The assistant initializes a git repo in the target directory before writing AGENTS.md or any other agent-facing file",
+        "The assistant reads the repo's description and topics back from the API after setting them",
+        "The assistant states what is still open rather than claiming completeness"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "This repo lives inside my bigger monorepo at /home/me/work and has no .git of its own. Open source it.",
+      "expected_output": "The nested directory gets its own git repo first, so path-resolving guards and the validator see it as a real repository rather than the enclosing superproject.",
+      "files": [],
+      "expectations": [
+        "The assistant runs git init in the nested directory before publishing",
+        "The assistant does not treat a guard's 'file does not exist in this repo' finding as a content defect when the cited file exists on disk",
+        "The assistant does not treat a 'detached' or missing branch in the validator output as a content defect"
+      ]
+    }
+  ]
+}

@@ -10,8 +10,10 @@ the publish. The repo with a `package.json` needs `files` or it ships its tests.
 The repo with `.claude-plugin/` needs valid `plugin.json` or it does not
 install.
 
-Five skills explain why each check exists. A validator decides whether it
-holds. A hook refuses the publish while a blocking finding stands.
+Five skills explain why each check exists. The skills leave the checking to a
+validator, which decides whether the files hold. The skills also name steps,
+and a checklist gate decides whether every one was done. A hook refuses the
+publish until both pass, and only the user can grant an exception.
 
 ## Commands
 
@@ -20,6 +22,7 @@ holds. A hook refuses the publish while a blocking finding stands.
 /repo-release:hygiene    ignore rules, tracked output, CI gates
 /repo-release:version    version, changelog and tag agreeing
 /repo-release:agent      AGENTS.md, bridges, project rules
+/repo-release:gate       the full publish checklist, item by item
 ```
 
 Each command routes to one skill and runs the validator first, so the audit
@@ -78,6 +81,41 @@ finding carries its own ratio, so a reader can argue with the number.
 half the best repos skip is a gap, not a defect, and a gate that fires on it
 teaches people to ignore the gate.
 
+## The checklist gate
+
+The validator checks files. It never checked whether the steps were done. An
+agent could skip reading config files for secrets, skip the CI run, or tag
+before the changelog commit, and the gate let the publish through.
+
+`scripts/checklist.py` holds every line of every skill's `## Checklist` as a
+gate item. A test fails when a skill gains a line the gate does not map, so the
+two cannot drift apart.
+
+```bash
+python3 scripts/checklist.py /path/to/repo --profile release
+```
+
+| Kind | Decided by | Examples |
+|---|---|---|
+| `auto` | the tree, git or the validator, every run | annotated tag at HEAD, version and changelog in one commit, `## [Unreleased]` open |
+| `remote` | GitHub through `gh`, or the network | description and topics read back, CI green on HEAD, README images return 200 |
+| `attest` | a reader, recorded against the HEAD commit | config files read by eye for secrets, open gaps written down |
+
+An attest item passes only with written evidence recorded against the current
+commit:
+
+```bash
+python3 scripts/checklist.py . attest gaps-written --evidence "README Limits lists the two open gaps"
+```
+
+The record lives in `.git/repo-release/`, so it is never published. A new
+commit voids every attestation, so a judgement about an older tree never covers
+a newer one.
+
+Items that cannot apply are marked `[-]` and skipped: the agent-native items on
+a repo with no `AGENTS.md`, the domain-gate items on a repo that builds no
+domain gates.
+
 ## Domain gates
 
 A repo's needs follow its type. `--domain auto` detects the type, then applies
@@ -133,8 +171,8 @@ It writes `README.md`, `AGENTS.md`, thin `CLAUDE.md` and `GEMINI.md` bridges,
 
 ## Status
 
-Working and tested: the validator, the scaffold, the hook and the domain
-gates. 99 tests pass. Each check is tested against a fixture repo holding
+Working and tested: the validator, the checklist gate, the scaffold, the hook
+and the domain gates. The full suite passes. Each check is tested against a fixture repo holding
 exactly the defect under test, so a passing suite means the checks discriminate
 rather than that the fixtures are empty.
 
@@ -155,22 +193,33 @@ through it, and the version guard fired on the edits that cut their tags.
 Strict is the default because the validator exits 0 on a clean tree. A guard
 that only warns on a discriminating check is a guard nobody reads.
 
-The hook fails open. Any error inside it allows the call, because a broken gate
-must never strand the action it guards.
+The hook fails open. A crash inside it allows the call, because a broken gate
+must never strand the action it guards. A crashed check inside the checklist is
+different: it counts as a fail, so a broken check still blocks.
 
-Two one-shot escapes exist and both are logged: `[publish-ok]` in a command,
-`[release-ok]` in a version edit.
+Only the user can grant an exception. Type `[publish-ok]` in a prompt and the
+next publish or version edit in that session skips the gate once. The approval
+comes from the user's prompt, which the agent cannot write, so `[publish-ok]`
+inside a tool call does nothing.
+
+The hook also refuses a tool call that would switch it off: an edit to the
+installed plugin, a write to the approval store, a settings change that sets
+`REPO_RELEASE_MODE` or disables the plugin. `off` mode does not lift this guard.
 
 ## How it works
 
 `hooks/guard_publish.py` reads the Bash command or the edited file, decides
 whether it publishes or changes a version, then runs `scripts/validate.py` and
-exits 2 with the findings on stderr.
+`scripts/checklist.py` and exits 2 with both reports on stderr.
 
 The guard triggers on `gh repo create --public`, `gh repo edit --visibility
-public`, `gh release create`, `git push --tags`, `npm publish`, `twine upload`
-and `cargo publish`, plus any edit to the version line in `pyproject.toml`,
-`package.json` or `Cargo.toml`.
+public`, `gh release create`, `gh release edit --draft=false`, a `gh api` call
+that creates a release, any tag push (`--tags`, `--follow-tags`, `refs/tags/`,
+or a version-shaped ref), and `npm`, `pnpm`, `yarn`, `twine`, `uv`, `poetry`,
+`flit` and `cargo` publishes. It follows `cd DIR &&` and `git -C DIR` to the
+directory the command acts on. A version edit in `pyproject.toml`,
+`package.json`, `Cargo.toml` or `plugin.json` runs the validator only, because
+the tag and the CI run come after the bump.
 
 The skills explain why each check exists. The validator only says whether it
 holds. Keeping the judgment out of the code is what makes the answer the same

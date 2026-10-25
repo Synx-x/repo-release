@@ -6,6 +6,7 @@ triggers are pinned here rather than trusted to reading.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -28,21 +29,33 @@ def ready_repo(tmp_path: Path) -> Path:
     return repo
 
 
-def fire(tool: str, tool_input: dict, cwd: Path, env: dict | None = None) -> int:
-    payload = {
-        "hook_event_name": "PreToolUse",
-        "tool_name": tool,
-        "cwd": str(cwd),
-        "tool_input": tool_input,
-    }
-    environment = {k: v for k, v in os.environ.items() if k != "REPO_RELEASE_MODE"}
+def invoke(payload: dict, cwd: Path, env: dict | None = None) -> subprocess.CompletedProcess:
+    payload = {"session_id": "test-session", "cwd": str(cwd), **payload}
+    environment = {k: v for k, v in os.environ.items() if not k.startswith("REPO_RELEASE_")}
+    # Approvals land beside the fixture, never in the real state directory.
+    environment["REPO_RELEASE_STATE"] = str(cwd.parent / "state")
     environment.update(env or {})
-    result = subprocess.run(
+    return subprocess.run(
         [sys.executable, str(HOOK)],
         input=json.dumps(payload), capture_output=True, text=True,
-        env=environment, timeout=60,
+        env=environment, timeout=120,
     )
-    return result.returncode
+
+
+def fire(tool: str, tool_input: dict, cwd: Path, env: dict | None = None) -> int:
+    payload = {"hook_event_name": "PreToolUse", "tool_name": tool, "tool_input": tool_input}
+    return invoke(payload, cwd, env).returncode
+
+
+def approve(cwd: Path, prompt: str = "ship it [publish-ok]") -> None:
+    invoke({"hook_event_name": "UserPromptSubmit", "prompt": prompt}, cwd)
+
+
+def load_hook():
+    spec = importlib.util.spec_from_file_location("guard_publish", HOOK)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 # --- publish triggers -----------------------------------------------------
@@ -54,9 +67,26 @@ def test_unready_publish_blocks(tmp_path: Path):
     assert code == 2
 
 
-def test_ready_publish_passes(tmp_path: Path):
-    code = fire("Bash", {"command": "gh repo create x/y --public"}, ready_repo(tmp_path))
-    assert code == 0
+def test_publish_passes_when_validator_and_checklist_pass(tmp_path: Path, monkeypatch):
+    hook = load_hook()
+    calls = []
+
+    def fake_run(script, repo, *args):
+        calls.append(script.name)
+        return 0, ""
+
+    monkeypatch.setattr(hook, "run", fake_run)
+    passed, _ = hook.gate(ready_repo(tmp_path), "public")
+    assert passed and calls == ["validate.py", "checklist.py"]
+
+
+def test_checklist_blocks_when_the_validator_passes(tmp_path: Path):
+    """A clean tree is not enough: the skipped steps still block."""
+    result = invoke({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                     "tool_input": {"command": "gh repo create x/y --public"}},
+                    ready_repo(tmp_path))
+    assert result.returncode == 2
+    assert "checklist (public)" in result.stderr and "BLOCKED" in result.stderr
 
 
 def test_unrelated_command_is_ignored(tmp_path: Path):
@@ -74,9 +104,17 @@ def test_every_publish_command_is_recognised(tmp_path: Path):
         "gh repo edit --visibility public",
         "gh release create v1.0.0",
         "git push origin --tags",
+        "git push --follow-tags",
+        "git push origin v1.2.3",
+        "git push origin refs/tags/v1.2.3",
+        "gh release edit v1.0.0 --draft=false",
+        "gh api repos/x/y/releases -X POST -f tag_name=v1",
         "npm publish",
         "twine upload dist/*",
+        "uv publish",
         "cargo publish",
+        "cd sub && gh release create v1.0.0",
+        "git -C repo push --tags",
     ):
         assert fire("Bash", {"command": command}, bare) == 2, command
 
@@ -87,10 +125,70 @@ def test_non_public_create_is_ignored(tmp_path: Path):
     assert fire("Bash", {"command": "gh repo create x/y --private"}, bare) == 0
 
 
-def test_publish_ok_escape_is_honoured(tmp_path: Path):
+def test_plain_push_is_not_a_publish(tmp_path: Path):
     bare = tmp_path / "bare"
     bare.mkdir()
-    assert fire("Bash", {"command": "gh repo create x/y --public [publish-ok]"}, bare) == 0
+    assert fire("Bash", {"command": "git push origin main"}, bare) == 0
+
+
+def test_publish_ok_typed_by_the_agent_is_ignored(tmp_path: Path):
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    assert fire("Bash", {"command": "gh repo create x/y --public [publish-ok]"}, bare) == 2
+
+
+def test_user_publish_ok_allows_exactly_one_publish(tmp_path: Path):
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    approve(bare)
+    assert fire("Bash", {"command": "gh repo create x/y --public"}, bare) == 0
+    assert fire("Bash", {"command": "gh repo create x/y --public"}, bare) == 2
+
+
+def test_a_prompt_without_the_escape_approves_nothing(tmp_path: Path):
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    approve(bare, "please publish it")
+    assert fire("Bash", {"command": "gh repo create x/y --public"}, bare) == 2
+
+
+def test_cd_prefix_targets_the_named_directory(tmp_path: Path):
+    hook = load_hook()
+    target = hook.target_dir("cd sub && gh release create v1", tmp_path)
+    assert target == (tmp_path / "sub").resolve()
+    assert hook.target_dir("git -C repo push --tags", tmp_path) == (tmp_path / "repo").resolve()
+
+
+# --- tamper guard ---------------------------------------------------------
+
+INSTALLED = "/home/u/.claude/plugins/cache/repo-release/repo-release/0.4.0/hooks/"
+
+
+def test_editing_the_installed_plugin_blocks(tmp_path: Path):
+    path = INSTALLED + "hooks.json"
+    assert fire("Edit", {"file_path": path, "old_string": "a", "new_string": "b"}, tmp_path) == 2
+    assert fire("Bash", {"command": f"sed -i s/strict/off/ {path}"}, tmp_path) == 2
+
+
+def test_reading_the_installed_plugin_passes(tmp_path: Path):
+    assert fire("Bash", {"command": f"cat {INSTALLED}hooks.json"}, tmp_path) == 0
+
+
+def test_settings_that_switch_the_gate_off_block(tmp_path: Path):
+    edit = {"file_path": "/home/u/.claude/settings.json",
+            "old_string": "{", "new_string": '{"env": {"REPO_RELEASE_MODE": "off"},'}
+    assert fire("Edit", edit, tmp_path) == 2
+    assert fire("Bash", {"command": "claude plugin disable repo-release"}, tmp_path) == 2
+
+
+def test_the_approval_store_is_off_limits(tmp_path: Path):
+    command = "echo x > ~/.claude/state/repo-release/approvals/s.json"
+    assert fire("Bash", {"command": command}, tmp_path) == 2
+
+
+def test_mode_off_does_not_lift_the_tamper_guard(tmp_path: Path):
+    edit = {"file_path": INSTALLED + "guard_publish.py", "old_string": "a", "new_string": "b"}
+    assert fire("Edit", edit, tmp_path, {"REPO_RELEASE_MODE": "off"}) == 2
 
 
 def test_mode_off_allows_everything(tmp_path: Path):
@@ -166,15 +264,17 @@ def test_edit_without_a_version_change_passes(tmp_path: Path):
     assert code == 0
 
 
-def test_release_ok_escape_is_honoured(tmp_path: Path):
+def test_user_approval_lets_one_version_edit_through(tmp_path: Path):
     repo = ready_repo(tmp_path)
     (repo / "pyproject.toml").write_text('[project]\nversion = "0.1.0"\n')
-    code = fire("Edit", {
+    edit = {
         "file_path": str(repo / "pyproject.toml"),
-        "new_string": 'version = "0.2.0" [release-ok]',
+        "new_string": 'version = "0.2.0"',
         "old_string": 'version = "0.1.0"',
-    }, repo)
-    assert code == 0
+    }
+    assert fire("Edit", edit, repo) == 2
+    approve(repo)
+    assert fire("Edit", edit, repo) == 0
 
 
 def test_a_non_manifest_file_is_ignored(tmp_path: Path):

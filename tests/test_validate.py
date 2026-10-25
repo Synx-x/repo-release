@@ -415,3 +415,19 @@ def test_cli_json_reports_readiness(tmp_path: Path):
 
 def test_missing_directory_is_usage_error(tmp_path: Path):
     assert validate.main([str(tmp_path / "nope")]) == 2
+
+
+def test_tracked_file_under_an_ignore_rule_blocks(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    (repo / "build.log").write_text("noise\n")
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    (repo / ".gitignore").write_text("__pycache__/\n*.pyc\n*.log\n")
+    assert "ignored-but-tracked" in codes(validate.check_ignored_tracked(repo))
+
+
+def test_ignore_rule_with_nothing_tracked_is_clean(tmp_path: Path):
+    repo = make_repo(tmp_path)
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "."], cwd=repo, check=True)
+    assert "ignored-but-tracked" not in codes(validate.check_ignored_tracked(repo))
