@@ -172,9 +172,18 @@ It writes `README.md`, `AGENTS.md`, thin `CLAUDE.md` and `GEMINI.md` bridges,
 ## Status
 
 Working and tested: the validator, the checklist gate, the scaffold, the hook
-and the domain gates. The full suite passes. Each check is tested against a fixture repo holding
-exactly the defect under test, so a passing suite means the checks discriminate
-rather than that the fixtures are empty.
+and the domain gates. The full suite passes. Each check is tested against a
+fixture repo holding exactly the defect under test, so a passing suite means the
+checks discriminate rather than that the fixtures are empty.
+
+Open gaps:
+
+- An `attest` item trusts the evidence it is given. The gate makes a skipped
+  judgement visible and costly, but it cannot prove the reading happened.
+- The tamper guard matches commands by pattern. A write it does not recognise,
+  such as a script that edits the installed plugin indirectly, gets through.
+- The hook fails open on its own crash, so a hook bug allows the publish.
+- `remote` items need `gh` and the network. Offline, they fail and block.
 
 The check set survives a repo it was not written around. A fixture cannot prove
 that, and two defects here shipped for three releases because only this tree was
@@ -189,6 +198,7 @@ through it, and the version guard fired on the edits that cut their tags.
 | Variable | Default | What it does |
 |---|---|---|
 | `REPO_RELEASE_MODE` | `strict` | `off`, `warn` or `strict`. `strict` blocks the publish while a blocking finding stands. |
+| `REPO_RELEASE_STATE` | `~/.claude/state/repo-release` | Where user approvals are stored. Tests point it at a temporary directory. |
 
 Strict is the default because the validator exits 0 on a clean tree. A guard
 that only warns on a discriminating check is a guard nobody reads.

@@ -1,5 +1,10 @@
 # Contributing
 
+The confusing part is that a skill's checklist is code. Every `- [ ]` line
+under a skill's `## Checklist` must match an item in `scripts/checklist.py`
+word for word. Edit a checklist line and `tests/test_checklist.py` fails until
+the item matches. Add a line and you add a gate that blocks every publish.
+
 Setup is two commands and no virtualenv. Tests run on the system interpreter.
 
 ## Setup
@@ -18,7 +23,8 @@ hook runs on whatever `python3` resolves to.
 python3 -m pytest tests -q
 ```
 
-The suite covers the validator and the scaffolder. Each test builds a throwaway
+The suite covers the validator, the checklist gate, the domain gates, the hook
+and the scaffolder. Each test builds a throwaway
 repo holding exactly the defect under test, so a passing run means the checks
 discriminate rather than that the fixtures are empty.
 
