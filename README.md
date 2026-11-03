@@ -81,7 +81,8 @@ easy to skip. Every warning therefore blocks, unless `KEEP_WARN` in
 Four rules guess, so they block only at release: `skill-long`, `bridge-long`,
 `cli-no-usage` and `cli-no-entrypoint`. A pending version bump keeps
 `dirty-tree` and `tag-missing` as warnings, because the bump commit and the tag
-come after the edit. A blocking finding that started as a warning ends in
+come after the edit. CI passes `--pre-tag`, which keeps only `tag-missing` a
+warning, because the tag comes after CI passes. A blocking finding that started as a warning ends in
 `(required)`.
 
 ### README voice and structure

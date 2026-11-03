@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **About scan.** The hook checks each `--description` value with the same
   voice rule as the README.
 - `readme-voice` checklist item, and the matching `publish-repo` checklist line.
+- `--pre-tag` for CI, which checks a committed version before its tag exists.
+  Only `tag-missing` stays a warning. The tree must still be clean.
 
 ### Changed
 

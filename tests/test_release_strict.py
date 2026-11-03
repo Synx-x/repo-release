@@ -72,6 +72,22 @@ def test_pending_bump_keeps_dirty_tree_and_tag_as_warnings():
     assert found == {"dirty-tree": "warn", "tag-missing": "warn", "contributing-missing": "block"}
 
 
+def test_pre_tag_keeps_only_the_tag_as_a_warning():
+    """CI checks a committed version before its tag exists. The tree must be clean."""
+    found = severities(validate.escalate(
+        [warn("tag-missing"), warn("dirty-tree")], "release", pending=False, pre_tag=True))
+    assert found == {"tag-missing": "warn", "dirty-tree": "block"}
+
+
+def test_pre_tag_flag_reaches_the_cli(tmp_path: Path, capsys):
+    repo = make_repo(tmp_path)
+    validate.main([str(repo), "--profile", "release", "--pre-tag", "--json"])
+    import json
+    findings = json.loads(capsys.readouterr().out)["findings"]
+    tag = [f for f in findings if f["code"] == "tag-missing"]
+    assert all(f["severity"] == "warn" for f in tag)
+
+
 def test_dirty_tree_blocks_outside_a_bump():
     assert validate.escalate([warn("dirty-tree")], "public", pending=False)[0].severity == "block"
 

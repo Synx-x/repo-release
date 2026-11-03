@@ -747,13 +747,20 @@ RELEASE_REQUIRED = {"skill-long", "bridge-long", "cli-no-usage", "cli-no-entrypo
 PENDING_BUMP_EXEMPT = {"dirty-tree", "tag-missing"}
 
 
-def escalate(findings: list[Finding], profile: str, pending: bool) -> list[Finding]:
-    """Turn every warning that names a fixable convention into a blocking finding."""
+def escalate(findings: list[Finding], profile: str, pending: bool,
+             pre_tag: bool = False) -> list[Finding]:
+    """Turn every warning that names a fixable convention into a blocking finding.
+
+    `pending` is a version edit not yet committed. `pre_tag` is a committed
+    version whose tag comes after CI passes, so only the tag may be missing.
+    """
     keep = set(KEEP_WARN)
     if profile != "release":
         keep |= RELEASE_REQUIRED
     if pending:
         keep |= PENDING_BUMP_EXEMPT
+    if pre_tag:
+        keep.add("tag-missing")
     out = []
     for finding in findings:
         if finding.severity == "warn" and finding.code not in keep:
@@ -763,7 +770,7 @@ def escalate(findings: list[Finding], profile: str, pending: bool) -> list[Findi
     return out
 
 
-def run(repo: Path, profile: str, expected: str = "") -> list[Finding]:
+def run(repo: Path, profile: str, expected: str = "", pre_tag: bool = False) -> list[Finding]:
     findings: list[Finding] = []
     for check in PROFILES[profile]:
         try:
@@ -774,7 +781,7 @@ def run(repo: Path, profile: str, expected: str = "") -> list[Finding]:
         except Exception as exc:  # a broken check must not hide the others
             findings.append(Finding("warn", "check-error",
                                     f"{check.__name__} failed: {exc}"))
-    return escalate(findings, profile, pending=bool(expected))
+    return escalate(findings, profile, pending=bool(expected), pre_tag=pre_tag)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -786,6 +793,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", choices=sorted(PROFILES), default="public")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--quiet", action="store_true", help="blocking findings only")
+    parser.add_argument(
+        "--pre-tag",
+        action="store_true",
+        help="the version is committed and CI runs before its tag, so a missing tag only warns",
+    )
     parser.add_argument(
         "--version",
         default="",
@@ -811,12 +823,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"not a directory: {repo}", file=sys.stderr)
         return 2
 
-    findings = run(repo, args.profile, args.version)
+    findings = run(repo, args.profile, args.version, args.pre_tag)
     resolved = ""
     if args.domain:
         import domains as domain_mod
         resolved, extra = domain_mod.check_domain(repo, args.domain)
-        findings.extend(escalate(extra, args.profile, pending=bool(args.version)))
+        findings.extend(escalate(extra, args.profile, pending=bool(args.version),
+                                 pre_tag=args.pre_tag))
     blocking = [f for f in findings if f.severity == "block"]
     warnings = [f for f in findings if f.severity == "warn"]
 

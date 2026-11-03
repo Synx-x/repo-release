@@ -37,14 +37,16 @@ jobs:
             exit 1
           fi
 
+      # The plugin eats its own cooking: the validator must pass on this repo.
+      # It runs before the secret scan, which leaves report files in the tree.
+      # The tag comes after CI passes, hence --pre-tag.
+      - name: Publish surface
+        run: python3 scripts/validate.py . --profile release --domain auto --pre-tag
+
       - name: Secret scan
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # The plugin eats its own cooking: the validator must pass on this repo.
-      - name: Publish surface
-        run: python3 scripts/validate.py . --profile release
 
       - name: Hook is executable and parses
         run: |
