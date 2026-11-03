@@ -120,13 +120,20 @@ def test_every_publish_command_is_recognised(tmp_path: Path):
 
 
 def conforming_repo(tmp_path: Path) -> Path:
-    """A ready repo that also keeps every convention the validator requires."""
-    repo = ready_repo(tmp_path)
-    (repo / "SECURITY.md").write_text("# Security\n\nReport issues privately.\n")
-    (repo / "CONTRIBUTING.md").write_text("# Contributing\n\nRun the tests first.\n")
-    (repo / ".gitattributes").write_text("* text=auto eol=lf\n")
-    (repo / ".github" / "workflows").mkdir(parents=True)
-    (repo / ".github" / "workflows" / "ci.yml").write_text("on: push\njobs: {}\n")
+    """A committed copy of this plugin's own tracked tree, which keeps every convention.
+
+    A hand-built fixture drifts from the conventions the gate requires. The
+    plugin passes its own gate, so a copy of it is a conforming repo by definition.
+    """
+    repo = tmp_path / "conforming"
+    repo.mkdir()
+    archive = subprocess.run(["git", "-C", str(PLUGIN_ROOT), "archive", "HEAD"],
+                             capture_output=True, check=True).stdout
+    subprocess.run(["tar", "-x", "-C", str(repo)], input=archive, check=True)
+    git = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run([*git, "init", "-q", "-b", "main"], check=True)
+    subprocess.run([*git, "add", "-A"], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "copy"], check=True)
     return repo
 
 

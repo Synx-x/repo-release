@@ -263,3 +263,26 @@ def test_the_cli_exits_one_when_blocked(tmp_path: Path):
                           str(git_repo(tmp_path)), "--profile", "public"],
                          capture_output=True, text=True)
     assert out.returncode == 1 and "BLOCKED" in out.stdout
+
+
+# --- local mode, used by a private create ---------------------------------
+
+def test_local_mode_runs_only_auto_items(tmp_path: Path):
+    repo = git_repo(tmp_path)
+    rows = checklist.evaluate(repo, "public", local=True)
+    assert rows
+    assert {item.kind for item, _, _ in rows} == {"auto"}
+
+
+def test_local_mode_fails_a_repo_missing_scaffold_files(tmp_path: Path):
+    repo = git_repo(tmp_path)
+    rows = {item.id: status for item, status, _ in checklist.evaluate(repo, "public", local=True)}
+    assert rows["scaffold-complete"] == "fail"
+
+
+def test_local_flag_reaches_the_cli(tmp_path: Path, capsys):
+    import json
+    repo = git_repo(tmp_path)
+    checklist.main([str(repo), "--profile", "public", "--local", "--json"])
+    kinds = {row["kind"] for row in json.loads(capsys.readouterr().out)["items"]}
+    assert kinds == {"auto"}

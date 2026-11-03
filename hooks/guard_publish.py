@@ -8,7 +8,7 @@ Triggers:
                             a tag push, `gh api` creating a release, or a registry
                             upload (npm, pnpm, yarn, twine, uv, poetry, cargo)
   PreToolUse on Bash        any `gh repo create`, private included: the public
-                            validator without the live-page checklist. Any
+                            validator and the local checklist items. Any
                             `--description` value: a voice scan
   PreToolUse on Write|Edit  the version line in pyproject.toml, package.json,
                             Cargo.toml or plugin.json
@@ -73,8 +73,8 @@ PUBLISH_COMMANDS = (
     (re.compile(r"\bcargo\s+publish\b"), "release"),
 )
 
-# Any repo creation, private included, runs the public validator without the
-# live-page checklist. Any About edit runs the description scan.
+# Any repo creation, private included, runs the public validator and the local
+# checklist items. Any About edit runs the description scan.
 SURFACE_COMMANDS = (
     re.compile(r"\bgh\s+repo\s+create\b"),
     re.compile(r"\bgh\s+repo\s+edit\b[^\n|&;]*(?:--description\b|\s-d\b)"),
@@ -227,7 +227,8 @@ def run(script: Path, repo: Path, *args: str) -> tuple[int, str]:
     return out.returncode, (out.stdout or "") + (out.stderr or "")
 
 
-def gate(repo: Path, profile: str, expected: str = "", checklist: bool = True) -> tuple[bool, str]:
+def gate(repo: Path, profile: str, expected: str = "", checklist: bool = True,
+         local: bool = False) -> tuple[bool, str]:
     args = ["--profile", profile, "--quiet", "--domain", "auto"]
     if expected:
         args += ["--version", expected]
@@ -235,7 +236,8 @@ def gate(repo: Path, profile: str, expected: str = "", checklist: bool = True) -
     report = f"validator ({profile}):\n{detail.strip()}"
     passed = code == 0
     if checklist:
-        code, detail = run(CHECKLIST, repo, "--profile", profile)
+        extra = ["--local"] if local else []
+        code, detail = run(CHECKLIST, repo, "--profile", profile, *extra)
         report += f"\n\nchecklist ({profile}):\n{detail.strip()}"
         passed = passed and code == 0
     return passed, report
@@ -295,9 +297,9 @@ def on_bash(payload: dict) -> None:
     if profile:
         passed, detail = gate(repo, profile)
     elif re.search(r"\bgh\s+repo\s+create\b", command):
-        # A private repo keeps the same conventions. Only the checklist, which
-        # reads the live public page, waits for a public publish.
-        passed, detail = gate(repo, "public", checklist=False)
+        # A private repo keeps the same conventions. It runs every local checklist
+        # item. Items that read the live public page wait for a public publish.
+        passed, detail = gate(repo, "public", local=True)
     else:
         passed, detail = True, ""
     about = description_report(command)
