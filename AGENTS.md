@@ -63,6 +63,13 @@ python3 scripts/scaffold.py /tmp/probe --dry-run
 7. **Every skill checklist line has a gate item.** A line with no item is
    advice, and advice is skipped late in a session. See
    `.agents/rules/check-design.md`.
+8. **A README describes the project, never the author's machine.** A README
+   that reports its test rig reads as a personal note and loses the reader.
+   See `.agents/rules/check-design.md`.
+9. **Conventions hold regardless of visibility.** Every repo creation, private
+   included, runs the `public` validator, and a warning blocks unless
+   `KEEP_WARN` gives the reason it cannot. A warning is too easy to skip. See
+   `.agents/rules/check-design.md`.
 
 ## Rules index
 

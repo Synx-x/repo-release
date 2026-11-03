@@ -5,7 +5,7 @@ description: >
   publish, open-source, make it public, ship a first release, or submit to a
   package index, plugin registry or marketplace. Covers the pre-publish audit,
   the artifact set, the order to build it in, and verifying the published page
-  renders. Skip for private repos, internal forks, and scratch work nobody reads.
+  renders. Private repos keep the same conventions, so it applies to them too.
 ---
 
 # Publishing a repository
@@ -19,20 +19,14 @@ else, and the reader never finds out it was meant for them.
 
 ## Order matters
 
-Audit, then research, then build, then publish, then verify. Building first
-means rewriting once the audit and the destination's conventions turn out to
-differ.
+Audit, research, build, publish, verify. Building first means a rewrite once
+the audit disagrees.
 
 ## 0. Run the gate on a repo that is not this one
 
-A validator only proves itself on repos it did not grow up beside. Every check
-in this plugin was written against its own tree, and its own tree passed all of
-them. Then a gate ran on a second repo and found two defects the plugin had
-carried for three releases: a manifest pointing at a directory that did not
-exist, and a transport check that matched `sse` inside the word "accessible".
-
-So audit a second, unrelated repo before trusting a new check. The failures that
-matter are the ones the author's own repo cannot show.
+A validator only proves itself on repos it did not grow up beside. A second
+repo once surfaced two defects this plugin carried for three releases. Audit an
+unrelated repo before trusting a new check.
 
 ## 1. Audit before anything is public
 
@@ -112,13 +106,15 @@ Add when they apply:
 
 ### On the README
 
-Lead with one sentence naming what it is. Put the image directly under it.
-Install steps come before options. Keep the technical explanation last, because
-most readers never reach it.
+Lead with one sentence naming what it is. Put the image or diagram directly
+under it. Install steps come before options. Keep the technical explanation
+last, because most readers never reach it.
 
-A status section earns trust when it is specific. Name the test count, the date
-of the last live measurement, and what does not work. A vague "actively
-maintained" reads as abandoned with extra words.
+The README speaks about the project and its purpose, in a neutral voice. The
+README states requirements, never the machine it ran on: no hardware model as
+a report, no `tested on`, no measurement dates, no first person. The README
+carries a `mermaid` architecture diagram and a fenced tree map. The README
+names its limitations plainly. The validator blocks each miss.
 
 ### On the screenshot
 
@@ -179,10 +175,9 @@ git rev-parse --abbrev-ref HEAD
 
 ## 6. Record what is still open
 
-State plainly what remains. A stale screenshot, a homepage pointing nowhere, a
-registry that cannot accept submissions yet, a test count nobody re-ran. An
-honest gap list beats a claim of completeness, and it is the difference between
-a repo someone trusts and one they quietly close.
+State plainly what remains: a stale screenshot, a dead homepage, a registry not
+yet accepting submissions. An honest gap list earns more trust than a claim of
+completeness.
 
 ## Failure modes
 
@@ -193,11 +188,9 @@ a repo someone trusts and one they quietly close.
   git init -b main
   ```
 
-  Without its own `.git`, everything that resolves a path from the file's
-  repository resolves against the enclosing superproject instead. A
-  PreToolUse guard then reports every cited file as missing even though it sits
-  right there, and the validator prints the branch as `detached` because no
-  branch exists yet. Both read as content defects and are neither.
+  Without its own `.git`, paths resolve against the enclosing superproject.
+  Cited files then read as missing and the branch as `detached`. Neither is a
+  content defect.
 
 ## Checklist
 
@@ -205,6 +198,7 @@ a repo someone trusts and one they quietly close.
 - [ ] Every configuration file read by eye for secrets, not just by scan
 - [ ] Destination checked for signs of life
 - [ ] README leads with one sentence and an image, install before options
+- [ ] README and About are neutral with no test environment, and the README has an architecture diagram and a tree map
 - [ ] LICENSE present with real text
 - [ ] Description is one line stating what it is, read back from the repo
 - [ ] Topics set, read back from the repo

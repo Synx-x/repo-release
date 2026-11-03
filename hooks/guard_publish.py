@@ -7,6 +7,9 @@ Triggers:
                             `gh repo edit --visibility public`, `gh release create`,
                             a tag push, `gh api` creating a release, or a registry
                             upload (npm, pnpm, yarn, twine, uv, poetry, cargo)
+  PreToolUse on Bash        any `gh repo create`, private included: the public
+                            validator without the live-page checklist. Any
+                            `--description` value: a voice scan
   PreToolUse on Write|Edit  the version line in pyproject.toml, package.json,
                             Cargo.toml or plugin.json
   PreToolUse, any tool      an attempt to switch the gate off: editing the
@@ -68,6 +71,13 @@ PUBLISH_COMMANDS = (
     (re.compile(r"\b(?:twine\s+upload|uv\s+publish|poetry\s+publish|flit\s+publish)\b"),
      "release"),
     (re.compile(r"\bcargo\s+publish\b"), "release"),
+)
+
+# Any repo creation, private included, runs the public validator without the
+# live-page checklist. Any About edit runs the description scan.
+SURFACE_COMMANDS = (
+    re.compile(r"\bgh\s+repo\s+create\b"),
+    re.compile(r"\bgh\s+repo\s+edit\b[^\n|&;]*(?:--description\b|\s-d\b)"),
 )
 
 VERSION_FILES = ("pyproject.toml", "package.json", "Cargo.toml", "plugin.json")
@@ -242,16 +252,58 @@ def report(blocked: bool, detail: str) -> None:
     sys.exit(2 if blocked else 0)
 
 
+def descriptions(command: str) -> list[str]:
+    """Every `--description` or `-d` value in the command's gh repo calls."""
+    found: list[str] = []
+    for part in segments(command):
+        if not re.search(r"\bgh\s+repo\s+(?:create|edit)\b", part):
+            continue
+        try:
+            words = shlex.split(part)
+        except ValueError:
+            continue
+        for index, word in enumerate(words):
+            if word in ("--description", "-d") and index + 1 < len(words):
+                found.append(words[index + 1])
+            elif word.startswith("--description="):
+                found.append(word.split("=", 1)[1])
+    return found
+
+
+def description_report(command: str) -> str:
+    """Voice problems in the About text, judged by the validator's own rule."""
+    sys.path.insert(0, str(VALIDATOR.parent))
+    import validate
+    lines = []
+    for text in descriptions(command):
+        for problem in validate.voice_findings(text):
+            lines.append(f"BLOCK description-voice: {problem}; the About line states "
+                         f"what the project is, not where it ran [{text[:60]}]")
+    return "\n".join(lines)
+
+
 def on_bash(payload: dict) -> None:
     command = str((payload.get("tool_input") or {}).get("command") or "")
     profile = publish_profile(command)
-    if not profile:
+    surface = any(pattern.search(command) for pattern in SURFACE_COMMANDS)
+    if not profile and not surface:
         sys.exit(0)
     if take_approval(str(payload.get("session_id") or "")):
         print("repo-release: the user's [publish-ok] honoured for this call", file=sys.stderr)
         sys.exit(0)
     repo = target_dir(command, Path(payload.get("cwd") or os.getcwd()))
-    passed, detail = gate(repo, profile)
+    if profile:
+        passed, detail = gate(repo, profile)
+    elif re.search(r"\bgh\s+repo\s+create\b", command):
+        # A private repo keeps the same conventions. Only the checklist, which
+        # reads the live public page, waits for a public publish.
+        passed, detail = gate(repo, "public", checklist=False)
+    else:
+        passed, detail = True, ""
+    about = description_report(command)
+    if about:
+        passed = False
+        detail = f"{detail}\n\nabout:\n{about}"
     if passed:
         sys.exit(0)
     report(mode() == "strict", detail)

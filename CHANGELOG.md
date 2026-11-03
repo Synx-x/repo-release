@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-03
+
+### Added
+
+- **README voice and structure gate.** `check_readme_voice` blocks a README
+  line that names a test machine: a GPU, CPU or Apple chip model, `tested on`,
+  `measured on`, or `my laptop`. It also blocks first person singular. A line
+  stating a requirement passes, and code blocks are never scanned.
+  `check_readme_structure` blocks a README without an architecture diagram or a
+  tree map when the repo has two or more content directories, and warns
+  otherwise.
+- **About scan.** The hook checks each `--description` value with the same
+  voice rule as the README.
+- `readme-voice` checklist item, and the matching `publish-repo` checklist line.
+
+### Changed
+
+- **Breaking:** a warning blocks in every profile, domain warnings included,
+  and ends in `(required)`. `KEEP_WARN` in `scripts/validate.py` lists the
+  eight codes that stay warnings, each with its reason. `skill-long`,
+  `bridge-long`, `cli-no-usage` and `cli-no-entrypoint` guess, so they block
+  only at release. A pending version bump keeps `dirty-tree` and `tag-missing`
+  as warnings. `package-json-invalid` now blocks outright. To upgrade, run
+  `scripts/validate.py . --profile public --domain auto` and close every
+  finding.
+- **Breaking:** a private `gh repo create` now runs the `public` validator,
+  because conventions hold regardless of visibility. It skips the checklist,
+  which reads a live public page. To upgrade, keep private repos to the same
+  conventions as public ones.
+- The `description` item fails an About line that names a test machine or
+  speaks in first person.
+- A `mermaid` block counts as the README image for `readme-lead` and
+  `readme-no-image`.
+
 ## [0.5.0] - 2026-10-25
 
 ### Changed
