@@ -53,7 +53,7 @@ manifests carry exactly `name`, `description` and `author`. Measured on
 `marketplace.json`, every `plugin.json` and every `hooks.json`, which is the
 same validity gate this applies.
 
-**mcp-server**, warning, because a client can still connect by hand: the README
+**mcp-server**, a required transport note and an optional registry file: the README
 names a transport, and a registry file exists. Measured across
 `github/github-mcp-server`, `firecrawl/firecrawl-mcp-server` and
 `makenotion/notion-mcp-server`: all three ship `server.json`, a `Dockerfile`,
@@ -63,16 +63,16 @@ and a README that names stdio or http.
 publish without it. Measured on `sharkdp/bat` and `clap-rs/clap`: both ship
 `Cargo.lock`, a licence field, `SECURITY.md` and `CHANGELOG.md`.
 
-**node-library**, warning: `files`, `exports` and `engines`. Measured on
+**node-library**, required `files` and `engines`, optional `exports`. Measured on
 `sindresorhus/got`: `files: ["dist/source"]`, a conditional `exports` map,
 `engines.node`, and `type: module`. Without `files`, the published tarball
 carries tests and config.
 
-**python-library**, warning: `requires-python`, a tests directory, and a
+**python-library**, required `requires-python` and tests, an optional
 `py.typed` marker when the source carries annotations. Without the marker, every
 consumer's type checker ignores those annotations.
 
-**monorepo**, warning: a CI workflow, and `CODEOWNERS` as a note.
+**monorepo**, a required CI workflow, and `CODEOWNERS` as a note.
 
 ## Adding a class
 
@@ -86,8 +86,12 @@ consumer's type checker ignores those annotations.
 Every rule above names the repo it came from. An invented rule blocks a repo
 doing the right thing for a reason the rule never imagined.
 
-**Block only where the failure is a broken install or a rejected publish.**
-Everything else warns. `plugin.json` blocks. A missing `Dockerfile` does not.
+**A rule becomes a requirement once measured.** A check emits `warn`, and
+`escalate()` in `scripts/validate.py` turns it into a block on every repo,
+private included. A rule stays a warning only when `KEEP_WARN` names why: it is
+wrong for some repo types, such as `npm-no-exports` on a CLI, or no repo change
+fixes it. A rule that guesses goes in `RELEASE_REQUIRED` and blocks only at
+release.
 
 ## Measure the prevalence before the rule
 
@@ -101,14 +105,15 @@ the ratio:
 
 | Measured | Rule | Severity |
 |---|---|---|
-| 10 of 20 | a security reporting route | warn |
-| 18 of 20 | a CI workflow | warn |
-| 16 of 20 | `CONTRIBUTING.md` | warn |
-| 15 of 20 | `.gitattributes` | warn |
+| 10 of 20 | a security reporting route | required |
+| 18 of 20 | a CI workflow | required |
+| 16 of 20 | `CONTRIBUTING.md` | required |
+| 15 of 20 | `.gitattributes` | required |
 | 6 of 20 | `CODE_OF_CONDUCT.md` | not a rule |
 
-A convention that half the best repos skip is a gap, not a defect, so it warns
-or stays out. Only a broken install or a rejected publish blocks.
+The count decides whether a convention becomes a rule at all. A convention most
+maintained repos keep becomes a requirement on every repo, because a warning is
+too easy to skip. A convention most of them skip stays out.
 
 The ratio goes in the finding's message. A reader who disagrees with the rule
 can then argue with a number rather than with an opinion.

@@ -407,7 +407,7 @@ def check_node_library(repo: Path) -> list[Finding]:
     out: list[Finding] = []
     data, error = _json(repo, "package.json")
     if data is None:
-        return [Finding("warn", "package-json-invalid", f"package.json does not parse: {error}")]
+        return [Finding("block", "package-json-invalid", f"package.json does not parse: {error}")]
     if not data.get("files"):
         out.append(Finding("warn", "npm-no-files-field",
                            "no files field; the published tarball includes tests, "

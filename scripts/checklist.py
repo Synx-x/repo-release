@@ -181,6 +181,19 @@ def validator_ok(profile: str) -> Callable[[Path], Result]:
     return check
 
 
+def readme_voice(repo: Path) -> Result:
+    """Neutral voice, no test rig, and a diagram plus a tree map, per the validator."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import validate
+    findings = validate.check_readme_voice(repo) + validate.check_readme_structure(repo)
+    blocking = [f.message for f in findings if f.severity == "block"]
+    if not readme(repo):
+        return "fail", "no README"
+    if blocking:
+        return "fail", f"{len(blocking)} problem(s), first: {blocking[0]}"
+    return "pass", "neutral voice, diagram and tree map present"
+
+
 def readme_lead(repo: Path) -> Result:
     text = readme(repo)
     if not text:
@@ -198,7 +211,7 @@ def readme_lead(repo: Path) -> Result:
         return "fail", "no Install section"
     if options is not None and options < install:
         return "fail", "options come before install"
-    has_image = bool(re.search(r"!\[[^\]]*\]\(|<img\s", text))
+    has_image = bool(re.search(r"!\[[^\]]*\]\(|<img\s|```mermaid", text))
     if not has_image:
         status, detail = attested(repo, "readme-lead")
         if status != "pass":
@@ -520,6 +533,11 @@ def description_ok(repo: Path) -> Result:
         return "fail", "the GitHub description is empty"
     if "\n" in text:
         return "fail", "the description runs over one line"
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import validate
+    problems = validate.voice_findings(text)
+    if problems:
+        return "fail", f"the description {problems[0]}; state what the project is"
     return "pass", f"read back: {text[:70]}"
 
 
@@ -602,6 +620,10 @@ ITEMS: list[Item] = [
     Item("readme-lead", "publish-repo",
          "README leads with one sentence and an image, install before options",
          BOTH, "auto", readme_lead),
+    Item("readme-voice", "publish-repo",
+         "README and About are neutral with no test environment, and the README has an "
+         "architecture diagram and a tree map",
+         BOTH, "auto", readme_voice),
     Item("license", "publish-repo", "LICENSE present with real text", BOTH, "auto", license_ok),
     Item("description", "publish-repo",
          "Description is one line stating what it is, read back from the repo",

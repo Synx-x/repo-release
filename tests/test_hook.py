@@ -119,10 +119,49 @@ def test_every_publish_command_is_recognised(tmp_path: Path):
         assert fire("Bash", {"command": command}, bare) == 2, command
 
 
-def test_non_public_create_is_ignored(tmp_path: Path):
-    bare = tmp_path / "bare"
-    bare.mkdir()
-    assert fire("Bash", {"command": "gh repo create x/y --private"}, bare) == 0
+def conforming_repo(tmp_path: Path) -> Path:
+    """A ready repo that also keeps every convention the validator requires."""
+    repo = ready_repo(tmp_path)
+    (repo / "SECURITY.md").write_text("# Security\n\nReport issues privately.\n")
+    (repo / "CONTRIBUTING.md").write_text("# Contributing\n\nRun the tests first.\n")
+    (repo / ".gitattributes").write_text("* text=auto eol=lf\n")
+    (repo / ".github" / "workflows").mkdir(parents=True)
+    (repo / ".github" / "workflows" / "ci.yml").write_text("on: push\njobs: {}\n")
+    return repo
+
+
+def test_private_create_with_a_conforming_repo_passes(tmp_path: Path):
+    """A private create runs the public validator, never the live-page checklist."""
+    repo = conforming_repo(tmp_path)
+    assert fire("Bash", {"command": "gh repo create x/y --private"}, repo) == 0
+
+
+def test_private_create_missing_conventions_blocks(tmp_path: Path):
+    repo = ready_repo(tmp_path)
+    assert fire("Bash", {"command": "gh repo create x/y --private"}, repo) == 2
+
+
+def test_private_create_with_an_environment_readme_blocks(tmp_path: Path):
+    repo = ready_repo(tmp_path)
+    (repo / "README.md").write_text(GOOD_README + "\nMeasured on my laptop with an RTX 3050.\n")
+    assert fire("Bash", {"command": "gh repo create x/y --private"}, repo) == 2
+
+
+def test_description_naming_a_test_rig_blocks(tmp_path: Path):
+    # A conforming repo, so the description alone causes the block.
+    repo = conforming_repo(tmp_path)
+    for command in (
+        'gh repo create x/y --private --description "TTS tested on an RTX 3050"',
+        "gh repo edit x/y --description 'A tool I use on my laptop'",
+        'gh repo edit -d "Runs on my machine"',
+    ):
+        assert fire("Bash", {"command": command}, repo) == 2, command
+
+
+def test_neutral_description_passes(tmp_path: Path):
+    repo = ready_repo(tmp_path)
+    command = 'gh repo edit x/y --description "Local text-to-speech service with voice cloning"'
+    assert fire("Bash", {"command": command}, repo) == 0
 
 
 def test_plain_push_is_not_a_publish(tmp_path: Path):

@@ -3,9 +3,12 @@
 
 Two profiles:
 
-    public    everything a stranger judges in the first screen, plus the
-              leaks that only matter once the repo is readable by anyone
+    public    the repo conventions every repo keeps, private or public: the
+              first screen, leaks, README voice and structure, conformance
     release   the public set, plus version, tag and changelog coherence
+
+A warning blocks unless `escalate` names a reason it cannot, so a convention
+is never one keystroke from skipped.
 
 Exit codes: 0 clean or warnings only, 1 a blocking finding, 2 usage error.
 
@@ -359,7 +362,7 @@ def check_readme_images(repo: Path) -> list[Finding]:
                                readme.name))
     images = list(repo.glob("*.png")) + list(repo.glob("*.svg")) + \
         list(repo.glob("docs/**/*.png"))
-    if not found and not images:
+    if not found and not images and "```mermaid" not in read(readme):
         out.append(Finding("note", "readme-no-image",
                            "no image in the README; anything with a visual "
                            "surface reads better with one"))
@@ -598,23 +601,176 @@ def check_release(repo: Path, expected: str = "") -> list[Finding]:
     return out
 
 
+# A README describes the project for every reader, so it never reports the
+# author's own machine. These shapes name a test rig, not a requirement.
+ENVIRONMENT_SHAPES = (
+    ("a GPU model", re.compile(r"\b(?:RTX|GTX|Quadro)\s?-?\d{3,4}\b|\bRadeon\s+(?:RX\s+)?\d{3,4}\b")),
+    ("a CPU model", re.compile(r"\b(?:i[3579]-\d{4,5}[A-Z]*|Ryzen\s+\d\s+\d{4}[A-Z]*)\b")),
+    ("an Apple chip", re.compile(r"\bM[1-9]\s+(?:Pro|Max|Ultra)\b")),
+    ("a test report", re.compile(r"\b(?:tested|measured|benchmarked|verified)\s+on\b", re.I)),
+    ("the author's machine", re.compile(
+        r"\b(?:my|our|this)\s+(?:own\s+)?(?:machine|laptop|desktop|pc|rig|box|setup|workstation)\b",
+        re.I)),
+    ("a laptop part", re.compile(r"\blaptop\s+(?:gpu|cpu|panel)\b", re.I)),
+)
+
+HARDWARE_LABELS = {"a GPU model", "a CPU model", "an Apple chip"}
+
+# A line stating what a user needs is a requirement, which is the README's job.
+REQUIREMENT_LINE = re.compile(r"\b(?:requires?|required|minimum|recommended|supported|needs?)\b", re.I)
+
+# First person singular. `I/O` and `I-beam` are not the pronoun.
+FIRST_PERSON = re.compile(r"(?<![\w/-])(?:I(?:'m|'ve|'d|'ll)?|[Mm]y|[Mm]e|[Mm]ine|[Mm]yself)(?![\w/-])")
+
+FENCE = re.compile(r"^(\s*)(```|~~~)")
+INLINE_CODE = re.compile(r"`[^`\n]*`")
+TREE_GLYPH = re.compile(r"[├└]──")
+DIAGRAM_IMAGE = re.compile(r"!\[[^\]]*\]\(([^)]*(?:arch|diagram|flow|overview|pipeline)[^)]*)\)", re.I)
+
+
+def prose_lines(text: str) -> list[tuple[int, str]]:
+    """README lines outside fenced code, with inline code removed."""
+    out: list[tuple[int, str]] = []
+    fenced = False
+    for number, line in enumerate(text.splitlines(), 1):
+        if FENCE.match(line):
+            fenced = not fenced
+            continue
+        if not fenced:
+            out.append((number, INLINE_CODE.sub("", line)))
+    return out
+
+
+def voice_findings(text: str) -> list[str]:
+    """Problems with one piece of public prose: environment reports and first person.
+
+    Shared by the README check, the checklist's About read-back and the hook's
+    `--description` scan, so all three judge the same way.
+    """
+    problems: list[str] = []
+    for number, line in prose_lines(text):
+        where = f"line {number}: " if "\n" in text else ""
+        requirement = bool(REQUIREMENT_LINE.search(line))
+        for label, shape in ENVIRONMENT_SHAPES:
+            # A requirement may name hardware. It never excuses a test report.
+            if requirement and label in HARDWARE_LABELS:
+                continue
+            match = shape.search(line)
+            if match:
+                problems.append(f"{where}names {label} ({match.group(0)!r})")
+                break
+        match = FIRST_PERSON.search(line)
+        if match:
+            problems.append(f"{where}first person ({match.group(0)!r})")
+    return problems
+
+
+def check_readme_voice(repo: Path) -> list[Finding]:
+    """The README speaks about the project in a neutral voice, never about one machine."""
+    readme = first_existing(repo, README_NAMES)
+    if readme is None:
+        return []
+    out: list[Finding] = []
+    for problem in voice_findings(read(readme)):
+        if "first person" in problem:
+            out.append(Finding("block", "readme-first-person",
+                               f"{problem}; describe the project, not its author", readme.name))
+        else:
+            out.append(Finding("block", "readme-environment",
+                               f"{problem}; a README states requirements, not the "
+                               "machine it was tested on", readme.name))
+    if not out:
+        out.append(Finding("note", "readme-voice-ok", "README voice is neutral", readme.name))
+    return out
+
+
+def source_dirs(repo: Path) -> list[str]:
+    """Top-level directories that hold project content, not tooling or caches."""
+    return sorted(p.name for p in repo.iterdir()
+                  if p.is_dir() and not p.name.startswith(".") and p.name not in SKIP_DIRS)
+
+
+def check_readme_structure(repo: Path) -> list[Finding]:
+    """An architecture diagram and a tree map, so a reader sees the shape before the code."""
+    readme = first_existing(repo, README_NAMES)
+    if readme is None:
+        return []
+    text = read(readme)
+    # A repo with two or more content directories has a shape worth drawing.
+    severity = "block" if len(source_dirs(repo)) >= 2 else "warn"
+    out: list[Finding] = []
+    if "```mermaid" not in text and not DIAGRAM_IMAGE.search(text):
+        out.append(Finding(severity, "readme-diagram-missing",
+                           "no architecture diagram; add a ```mermaid block or an image "
+                           "named for the architecture", readme.name))
+    if not TREE_GLYPH.search(text):
+        out.append(Finding(severity, "readme-tree-missing",
+                           "no tree map; add a fenced tree of the repo layout with a "
+                           "one-line note per entry", readme.name))
+    if not out:
+        out.append(Finding("note", "readme-structure-ok",
+                           "README carries a diagram and a tree map", readme.name))
+    return out
+
+
 PROFILES = {
     "public": (
         check_surface, check_ignored_tracked, check_absolute_paths,
         check_secrets, check_cited_paths, check_env_example,
         check_agents_md, check_hygiene, check_readme_images, check_conformance,
-        check_claimed_counts,
+        check_claimed_counts, check_readme_voice, check_readme_structure,
     ),
     "release": (
         check_surface, check_ignored_tracked, check_absolute_paths,
         check_secrets, check_cited_paths, check_env_example,
         check_agents_md, check_hygiene, check_readme_images, check_conformance,
-        check_claimed_counts, check_release,
+        check_claimed_counts, check_readme_voice, check_readme_structure, check_release,
     ),
 }
 
 
-def run(repo: Path, profile: str, expected: str = "") -> list[Finding]:
+# Conventions hold on every repo, private or public. A warning is easy to skip,
+# so a warning blocks unless its code is listed here with the reason it cannot.
+KEEP_WARN = {
+    "check-error": "the tool crashed, and no repo change fixes it",
+    "domain-unknown": "the detector could not classify the repo",
+    "python-not-typed-marker": "right for a library, wrong for an app or CLI",
+    "npm-no-exports": "right for a library, wrong for a CLI package",
+    "mcp-registry-missing": "registry listing is optional, and wrong when private",
+    "mcp-server-json-field": "registry listing is optional, and wrong when private",
+    "readme-diagram-missing": "emitted as a warning only for a single-folder repo",
+    "readme-tree-missing": "emitted as a warning only for a single-folder repo",
+}
+# Sound rules that guess. Required at release, a warning before it.
+RELEASE_REQUIRED = {"skill-long", "bridge-long", "cli-no-usage", "cli-no-entrypoint"}
+# The hook checks a version edit before its commit and tag exist.
+PENDING_BUMP_EXEMPT = {"dirty-tree", "tag-missing"}
+
+
+def escalate(findings: list[Finding], profile: str, pending: bool,
+             pre_tag: bool = False) -> list[Finding]:
+    """Turn every warning that names a fixable convention into a blocking finding.
+
+    `pending` is a version edit not yet committed. `pre_tag` is a committed
+    version whose tag comes after CI passes, so only the tag may be missing.
+    """
+    keep = set(KEEP_WARN)
+    if profile != "release":
+        keep |= RELEASE_REQUIRED
+    if pending:
+        keep |= PENDING_BUMP_EXEMPT
+    if pre_tag:
+        keep.add("tag-missing")
+    out = []
+    for finding in findings:
+        if finding.severity == "warn" and finding.code not in keep:
+            finding = Finding("block", finding.code,
+                              f"{finding.message} (required)", finding.path)
+        out.append(finding)
+    return out
+
+
+def run(repo: Path, profile: str, expected: str = "", pre_tag: bool = False) -> list[Finding]:
     findings: list[Finding] = []
     for check in PROFILES[profile]:
         try:
@@ -625,7 +781,7 @@ def run(repo: Path, profile: str, expected: str = "") -> list[Finding]:
         except Exception as exc:  # a broken check must not hide the others
             findings.append(Finding("warn", "check-error",
                                     f"{check.__name__} failed: {exc}"))
-    return findings
+    return escalate(findings, profile, pending=bool(expected), pre_tag=pre_tag)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -637,6 +793,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", choices=sorted(PROFILES), default="public")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     parser.add_argument("--quiet", action="store_true", help="blocking findings only")
+    parser.add_argument(
+        "--pre-tag",
+        action="store_true",
+        help="the version is committed and CI runs before its tag, so a missing tag only warns",
+    )
     parser.add_argument(
         "--version",
         default="",
@@ -662,12 +823,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"not a directory: {repo}", file=sys.stderr)
         return 2
 
-    findings = run(repo, args.profile, args.version)
+    findings = run(repo, args.profile, args.version, args.pre_tag)
     resolved = ""
     if args.domain:
         import domains as domain_mod
         resolved, extra = domain_mod.check_domain(repo, args.domain)
-        findings.extend(extra)
+        findings.extend(escalate(extra, args.profile, pending=bool(args.version),
+                                 pre_tag=args.pre_tag))
     blocking = [f for f in findings if f.severity == "block"]
     warnings = [f for f in findings if f.severity == "warn"]
 

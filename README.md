@@ -61,21 +61,57 @@ profiles:
 
 | Profile | Checks |
 |---|---|
-| `public` | README, LICENSE, ignored-but-tracked files, machine-local paths, credential shapes, cited paths, `.env.example`, bridges, ignore rules, README images, conformance |
+| `public` | README, LICENSE, ignored-but-tracked files, machine-local paths, credential shapes, cited paths, `.env.example`, bridges, ignore rules, README images, conformance, README voice and structure. Runs on every `gh repo create`, private included |
 | `release` | all of `public`, plus manifest version, changelog entry and tag agreeing |
+
+### Required conventions
+
+Repo conventions hold on every repo, private or public, because a warning is
+easy to skip. Every warning therefore blocks, unless `KEEP_WARN` in
+`scripts/validate.py` names a reason it cannot:
+
+| Stays a warning | Reason |
+|---|---|
+| `check-error` | the tool crashed, and no repo change fixes it |
+| `domain-unknown` | the detector could not classify the repo |
+| `python-not-typed-marker`, `npm-no-exports` | right for a library, wrong for an app or CLI |
+| `mcp-registry-missing`, `mcp-server-json-field` | registry listing is optional, and wrong when private |
+| `readme-diagram-missing`, `readme-tree-missing` | warn only for a single-folder repo |
+
+Four rules guess, so they block only at release: `skill-long`, `bridge-long`,
+`cli-no-usage` and `cli-no-entrypoint`. A pending version bump keeps
+`dirty-tree` and `tag-missing` as warnings, because the bump commit and the tag
+come after the edit. CI passes `--pre-tag`, which keeps only `tag-missing` a
+warning, because the tag comes after CI passes. A blocking finding that started as a warning ends in
+`(required)`.
+
+### README voice and structure
+
+A README describes the project to every reader, so it never reports the
+author's machine. A README line blocks when it names a GPU, CPU or Apple chip
+model, says `tested on` or `measured on`, or refers to `my laptop` or `this
+machine`. A README line stating a requirement, such as "requires an RTX 2060 or
+newer", passes, because a requirement is the README's job. A README line in
+first person singular blocks too. README code blocks are not prose, and the
+scan skips them. The About line gets the same scan.
+
+A README for a repo with two or more content directories also needs an
+architecture diagram, as a `mermaid` block or an image named for the
+architecture, and a fenced tree map of the layout. A README for a
+single-directory repo gets a warning instead.
 
 ### Conformance, measured rather than assumed
 
 Five conventions come from counting 20 top-starred repos on 2026-10-24. Each
 finding carries its own ratio, so a reader can argue with the number.
 
-| Convention | Measured | Severity |
-|---|---|---|
-| a security reporting route | 10 of 20 | warn |
-| a CI workflow | 18 of 20 | warn |
-| `CONTRIBUTING.md` | 16 of 20 | warn |
-| `.gitattributes` | 15 of 20 | warn |
-| a dependency-update config | 15 of 20 | note |
+| Convention | Measured | `public` | `release` |
+|---|---|---|---|
+| a security reporting route | 10 of 20 | warn | block |
+| a CI workflow | 18 of 20 | warn | block |
+| `CONTRIBUTING.md` | 16 of 20 | warn | block |
+| `.gitattributes` | 15 of 20 | warn | block |
+| a dependency-update config | 15 of 20 | note | note |
 
 `CODE_OF_CONDUCT.md` was measured at 6 of 20 and left out. A convention that
 half the best repos skip is a gap, not a defect, and a gate that fires on it
@@ -145,7 +181,7 @@ what that type needs. Run `--list-domains` for the full set.
 | `docs` | over 70% markup | a README entry point |
 | `generic` | anything else | the base checks only |
 
-Every rule cites the maintained repo I measured it on. `sindresorhus/got` is
+Every rule cites the maintained repo that its evidence comes from. `sindresorhus/got` is
 why `files` and `exports` are checked. `wshobson/agents` is why plugin JSON
 validity is a CI gate. `sharkdp/bat` and `clap-rs/clap` are why the licence
 field blocks a Rust crate. See `skills/domain-gates/SKILL.md` for the evidence.
@@ -231,11 +267,44 @@ installed plugin, a write to the approval store, a settings change that sets
 
 ## How it works
 
+```mermaid
+flowchart LR
+    A[Bash command or file edit] --> H[hooks/guard_publish.py]
+    H -->|publish or release| V[scripts/validate.py]
+    H -->|publish or release| C[scripts/checklist.py]
+    H -->|private create| S[validate.py --profile public]
+    H -->|--description| A[voice scan of the About line]
+    V --> D[scripts/domains.py]
+    C --> V
+    V & C & S & A --> R{blocking finding?}
+    R -->|yes| B[exit 2, report on stderr]
+    R -->|no| P[command runs]
+```
+
+```text
+repo-release/
+├── .claude-plugin/     plugin and marketplace manifests
+├── commands/           five slash commands, one per skill
+├── hooks/              guard_publish.py and its hooks.json registration
+├── scripts/
+│   ├── validate.py     file checks, two profiles
+│   ├── checklist.py    every skill checklist line as a gate item
+│   ├── domains.py      repo-type detection and per-domain checks
+│   └── scaffold.py     copies the template set, never overwriting
+├── skills/             five skills explaining why each check exists
+├── templates/          repo files and license texts the scaffold writes
+└── tests/              fixture-repo tests for every check
+```
+
 `hooks/guard_publish.py` reads the Bash command or the edited file, decides
 whether it publishes or changes a version, then runs `scripts/validate.py` and
 `scripts/checklist.py` and exits 2 with both reports on stderr.
 
-The guard triggers on `gh repo create --public`, `gh repo edit --visibility
+Any `gh repo create`, private included, runs the `public` validator. A private
+create skips the checklist, because the checklist reads a live public page. Any
+`--description` value gets the README voice scan.
+
+The full gate triggers on `gh repo create --public`, `gh repo edit --visibility
 public`, `gh release create`, `gh release edit --draft=false`, a `gh api` call
 that creates a release, any tag push (`--tags`, `--follow-tags`, `refs/tags/`,
 or a version-shaped ref), and `npm`, `pnpm`, `yarn`, `twine`, `uv`, `poetry`,
