@@ -22,7 +22,11 @@ jobs:
   hygiene:
     runs-on: ubuntu-latest
     steps:
+      # Full history: on a pull request, gitleaks scans `commit^..commit`, and a
+      # shallow clone has no parent to resolve.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: No tracked file is gitignored
         run: |
