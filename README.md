@@ -233,6 +233,10 @@ Open gaps:
   such as a script that edits the installed plugin indirectly, gets through.
 - The hook fails open on its own crash, so a hook bug allows the publish.
 - `remote` items need `gh` and the network. Offline, they fail and block.
+- The README voice scan matches patterns. A test machine described in words
+  it does not list, such as a hostname or a cloud instance type, gets through.
+- A plain push to an existing repo runs no gate. A README edited after creation
+  reaches the voice scan only at the next release.
 
 The check set survives a repo it was not written around. A fixture cannot prove
 that, and two defects here shipped for three releases because only this tree was
