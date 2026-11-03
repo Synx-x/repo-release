@@ -740,10 +740,17 @@ def reviewed(repo: Path, item: Item, reason: str) -> Result:
                       f"`attest na:{item.id}` or `attest na:{item.skill}`")
 
 
-def evaluate(repo: Path, profile: str) -> list[tuple[Item, str, str]]:
+def evaluate(repo: Path, profile: str, local: bool = False) -> list[tuple[Item, str, str]]:
+    """Evaluate every item for the profile.
+
+    `local` keeps only `auto` items, which need neither GitHub nor a reader.
+    A private create runs them, because it has no public page to read back.
+    """
     rows = []
     for item in ITEMS:
         if profile not in item.profiles:
+            continue
+        if local and item.kind != "auto":
             continue
         reason = applies(repo, item)
         if reason:
@@ -809,6 +816,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--evidence", default="")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--list", action="store_true", help="print every item, then exit")
+    parser.add_argument("--local", action="store_true",
+                        help="only auto items, for a repo with no public page yet")
     args = parser.parse_args(argv)
 
     if args.list:
@@ -822,7 +831,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.action == "attest":
         return record(repo, args.item, args.evidence)
 
-    rows = evaluate(repo, args.profile)
+    rows = evaluate(repo, args.profile, local=args.local)
     blocked = any(status in ("fail", "attest") for _, status, _ in rows)
     if args.json:
         print(json.dumps({"profile": args.profile, "ok": not blocked, "items": [

@@ -713,18 +713,79 @@ def check_readme_structure(repo: Path) -> list[Finding]:
     return out
 
 
+CHANGELOG_CATEGORIES = {"Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"}
+VERSION_HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+(?:[-+][\w.]+)?)\] - \d{4}-\d{2}-\d{2}$")
+LINK_REFERENCE = re.compile(r"^\[([^\]]+)\]:\s+\S+", re.MULTILINE)
+
+
+def check_changelog_structure(repo: Path) -> list[Finding]:
+    """The changelog keeps the template's Keep a Changelog shape.
+
+    The release check only asks whether the current version has an entry. A
+    changelog can pass that and still drop the format statement, the
+    categories or the compare links, which is how two repos drifted.
+    """
+    path = repo / "CHANGELOG.md"
+    if not path.exists():
+        return [Finding("block", "changelog-missing",
+                        "no CHANGELOG.md; a reader cannot tell what changed between versions")]
+    text = read(path)
+    out: list[Finding] = []
+    if "keepachangelog.com" not in text:
+        out.append(Finding("block", "changelog-format-unstated",
+                           "the header does not state the Keep a Changelog format", path.name))
+    headings = [line for line in text.splitlines() if line.startswith("## ")]
+    if "## [Unreleased]" not in headings:
+        out.append(Finding("block", "changelog-unreleased-missing",
+                           "no `## [Unreleased]` section for the next change", path.name))
+    references = set(LINK_REFERENCE.findall(text))
+    sections = re.split(r"^## ", text, flags=re.MULTILINE)[1:]
+    for section in sections:
+        heading = "## " + section.splitlines()[0]
+        if heading == "## [Unreleased]":
+            if "Unreleased" not in references:
+                out.append(Finding("block", "changelog-link-missing",
+                                   "no `[Unreleased]:` compare link", path.name))
+            continue
+        match = VERSION_HEADING.match(heading)
+        if not match:
+            out.append(Finding("block", "changelog-heading-shape",
+                               f"{heading!r} is not `## [x.y.z] - YYYY-MM-DD`", path.name))
+            continue
+        version = match.group(1)
+        categories = re.findall(r"^### (.+)$", section, flags=re.MULTILINE)
+        if not categories:
+            out.append(Finding("block", "changelog-category-missing",
+                               f"{version} has no `### Added`, `### Changed` or other category",
+                               path.name))
+        for category in categories:
+            if category.strip() not in CHANGELOG_CATEGORIES:
+                out.append(Finding("block", "changelog-category-unknown",
+                                   f"{version} uses `### {category}`; use one of "
+                                   f"{', '.join(sorted(CHANGELOG_CATEGORIES))}", path.name))
+        if version not in references:
+            out.append(Finding("block", "changelog-link-missing",
+                               f"no `[{version}]:` link at the bottom", path.name))
+    if not out:
+        out.append(Finding("note", "changelog-structure-ok",
+                           "changelog keeps the Keep a Changelog shape", path.name))
+    return out
+
+
 PROFILES = {
     "public": (
         check_surface, check_ignored_tracked, check_absolute_paths,
         check_secrets, check_cited_paths, check_env_example,
         check_agents_md, check_hygiene, check_readme_images, check_conformance,
         check_claimed_counts, check_readme_voice, check_readme_structure,
+        check_changelog_structure,
     ),
     "release": (
         check_surface, check_ignored_tracked, check_absolute_paths,
         check_secrets, check_cited_paths, check_env_example,
         check_agents_md, check_hygiene, check_readme_images, check_conformance,
-        check_claimed_counts, check_readme_voice, check_readme_structure, check_release,
+        check_claimed_counts, check_readme_voice, check_readme_structure,
+        check_changelog_structure, check_release,
     ),
 }
 

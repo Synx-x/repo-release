@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-03
+
+### Added
+
+- `check_changelog_structure` blocks a changelog that drops the template's
+  Keep a Changelog shape: the format statement, `## [Unreleased]`,
+  `## [x.y.z] - YYYY-MM-DD` headings, a standard category under each version,
+  or a compare link for each version. Check your changelog with
+  `scripts/validate.py . --profile public`.
+- `checklist.py --local` runs only the items that need neither GitHub nor a
+  reader.
+
+### Changed
+
+- **Breaking:** a private `gh repo create` now runs the local checklist items
+  too, so a missing scaffold file, bridge or rule file blocks it. To upgrade,
+  run `scripts/scaffold.py` on the repo and fill every placeholder.
+
+### Fixed
+
+- The changelog's compare links stopped at 0.2.0. Every release now has one.
+
 ## [0.6.0] - 2026-11-03
 
 ### Added
@@ -231,7 +253,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflow, and an example rule and workflow.
 - MIT and Apache-2.0 license texts.
 
-[Unreleased]: https://github.com/Synx-x/repo-release/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/Synx-x/repo-release/releases/tag/v0.2.0
-[0.1.1]: https://github.com/Synx-x/repo-release/releases/tag/v0.1.1
+[Unreleased]: https://github.com/Synx-x/repo-release/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Synx-x/repo-release/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/Synx-x/repo-release/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/Synx-x/repo-release/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/Synx-x/repo-release/compare/v0.3.2...v0.4.0
+[0.3.2]: https://github.com/Synx-x/repo-release/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/Synx-x/repo-release/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/Synx-x/repo-release/compare/v0.2.2...v0.3.0
+[0.2.2]: https://github.com/Synx-x/repo-release/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/Synx-x/repo-release/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/Synx-x/repo-release/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/Synx-x/repo-release/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Synx-x/repo-release/releases/tag/v0.1.0

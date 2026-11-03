@@ -276,7 +276,7 @@ flowchart LR
     A[Bash command or file edit] --> H[hooks/guard_publish.py]
     H -->|publish or release| V[scripts/validate.py]
     H -->|publish or release| C[scripts/checklist.py]
-    H -->|private create| S[validate.py --profile public]
+    H -->|private create| S[validate.py --profile public<br/>checklist.py --local]
     H -->|--description| A[voice scan of the About line]
     V --> D[scripts/domains.py]
     C --> V
@@ -304,9 +304,10 @@ repo-release/
 whether it publishes or changes a version, then runs `scripts/validate.py` and
 `scripts/checklist.py` and exits 2 with both reports on stderr.
 
-Any `gh repo create`, private included, runs the `public` validator. A private
-create skips the checklist, because the checklist reads a live public page. Any
-`--description` value gets the README voice scan.
+Any `gh repo create`, private included, runs the `public` validator and every
+local checklist item (`checklist.py --local`). Items that read the live public
+page wait for a public publish. Any `--description` value gets the README voice
+scan.
 
 The full gate triggers on `gh repo create --public`, `gh repo edit --visibility
 public`, `gh release create`, `gh release edit --draft=false`, a `gh api` call
