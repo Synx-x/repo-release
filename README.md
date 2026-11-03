@@ -237,6 +237,8 @@ Open gaps:
   it does not list, such as a hostname or a cloud instance type, gets through.
 - A plain push to an existing repo runs no gate. A README edited after creation
   reaches the voice scan only at the next release.
+- The changelog check confirms each version has a compare link, not that the
+  link points at the right tags.
 
 The check set survives a repo it was not written around. A fixture cannot prove
 that, and two defects here shipped for three releases because only this tree was
